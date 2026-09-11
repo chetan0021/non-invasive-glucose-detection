@@ -2,13 +2,14 @@
 Non-Invasive Blood Glucose Prediction System — Advanced Clinical & Sensor Exploration Dashboard
 Built with Streamlit & Phase 7 Production Multi-Modal Inference Engine.
 
-Features:
-1. 1-Click Clinical Benchmark Presets (Healthy, Prediabetes, Type 2 Spike, Severe Hyperglycemia, Hypoglycemia)
-2. Interactive Multi-Modal Sensor Fine-Tuning (Saliva pH, Skin Temp, MAX30102 PPG, ECG HRV, APG/VPG)
-3. ADA Clinical Cutoff Tiers & Live Visual Glycemic Gauge Meter
-4. Biomarker Sensitivity & Physiological Contribution Breakdown
-5. 2-Band Demographic Risk Screening (CDC NHANES Scoped)
-6. Automated ReportLab Clinical PDF Generation & CSV Audit Trail
+Interactive Visualizations:
+1. Longitudinal Patient Glycemic Trend Chart (with Clarke Zone color coding)
+2. Calibrated Confidence Interval vs. Clinical Safety Zones (Horizontal Gauge)
+3. Top-8 Physiological Feature Contribution Bar Chart (Signed impact on predicted BGL)
+4. Multi-Modal Parameter Sensitivity Sweep Curves (Real-time live simulation)
+5. Physiological Input vs Normal Reference Range Radar/Bar Comparison
+6. Always-Visible Model Transparency Badge & Type 1 Clinical Caution Alerts
+7. 1-Click Clinical Benchmark Presets & Indian ICMR/RSSDI Population Standards
 """
 
 import os
@@ -17,11 +18,13 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, List
 
 import pandas as pd
 import numpy as np
 import streamlit as st
+import plotly.graph_objects as go
+import plotly.express as px
 
 # Setup Path & Imports
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -59,15 +62,27 @@ CUSTOM_CSS = """
     .sub-title {
         font-size: 1.0rem;
         color: #475569;
-        margin-bottom: 1.2rem;
+        margin-bottom: 1.1rem;
     }
-    .metric-card {
-        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-        border: 1px solid #cbd5e1;
-        border-radius: 12px;
-        padding: 1.1rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        margin-bottom: 0.8rem;
+    .model-badge-fs {
+        background: linear-gradient(135deg, #1e3a8a 0%, #0284c7 100%);
+        color: #ffffff;
+        padding: 6px 14px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 0.88rem;
+        display: inline-block;
+        margin-bottom: 0.6rem;
+    }
+    .model-badge-tab {
+        background: linear-gradient(135deg, #4338ca 0%, #6366f1 100%);
+        color: #ffffff;
+        padding: 6px 14px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 0.88rem;
+        display: inline-block;
+        margin-bottom: 0.6rem;
     }
     .badge-normal {
         background-color: #dcfce7;
@@ -130,8 +145,8 @@ CUSTOM_CSS = """
         border-left: 5px solid #f59e0b;
         padding: 0.8rem 1.1rem;
         border-radius: 6px;
-        margin-top: 0.9rem;
-        margin-bottom: 0.9rem;
+        margin-top: 0.8rem;
+        margin-bottom: 0.8rem;
         color: #92400e;
         font-size: 0.90rem;
     }
@@ -144,13 +159,6 @@ CUSTOM_CSS = """
         margin-bottom: 0.8rem;
         color: #b91c1c;
         font-size: 0.90rem;
-    }
-    .preset-card {
-        background-color: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 0.8rem;
-        margin-bottom: 0.6rem;
     }
 </style>
 """
@@ -180,8 +188,8 @@ BENCHMARK_PRESETS = {
     "Custom / Manual Entry": None,
     "🟢 Benchmark 1: Healthy Adult (Fasting Normal: ~88 mg/dL)": {
         "full_name": "Healthy Reference Subject",
-        "notes": "Normal fasting metabolic baseline (ADA Normal <100 mg/dL)",
-        "age": 34.0, "gender": "Female", "height_cm": 168.0, "weight_kg": 62.0,
+        "notes": "Normal fasting metabolic baseline (ADA/ICMR Normal <100 mg/dL)",
+        "age": 34.0, "gender": "Female", "height_cm": 168.0, "weight_kg": 60.0,
         "family_history": "No (0)", "smoking_status": "Non-Smoker (0)",
         "fasting_status": "Fasting (≥8h)", "med_status": "None",
         "diagnosis_option": "None (Healthy)",
@@ -194,8 +202,8 @@ BENCHMARK_PRESETS = {
     },
     "🟡 Benchmark 2: Prediabetes / Impaired Fasting (~114 mg/dL)": {
         "full_name": "Prediabetes Screen Subject",
-        "notes": "Impaired fasting glucose profile (ADA Prediabetes 100-125 mg/dL)",
-        "age": 52.0, "gender": "Male", "height_cm": 175.0, "weight_kg": 86.0,
+        "notes": "Impaired fasting glucose profile (ADA/ICMR Prediabetes 100-125 mg/dL)",
+        "age": 52.0, "gender": "Male", "height_cm": 175.0, "weight_kg": 84.0,
         "family_history": "Yes (1)", "smoking_status": "Non-Smoker (0)",
         "fasting_status": "Fasting (≥8h)", "med_status": "None",
         "diagnosis_option": "Prediabetes",
@@ -209,7 +217,7 @@ BENCHMARK_PRESETS = {
     "🟠 Benchmark 3: Type 2 Diabetes Post-Prandial Spike (~172 mg/dL)": {
         "full_name": "Type 2 Subject (Post-Meal)",
         "notes": "2-hour post-prandial glycemic excursion on Metformin",
-        "age": 59.0, "gender": "Male", "height_cm": 174.0, "weight_kg": 92.0,
+        "age": 59.0, "gender": "Male", "height_cm": 174.0, "weight_kg": 90.0,
         "family_history": "Yes (1)", "smoking_status": "Current Smoker (1)",
         "fasting_status": "Non-Fasting / Post-Meal", "med_status": "Oral Hypoglycemics",
         "diagnosis_option": "Type 2 Diabetes",
@@ -223,7 +231,7 @@ BENCHMARK_PRESETS = {
     "🔴 Benchmark 4: Severe Hyperglycemia / Uncontrolled Spike (~265 mg/dL)": {
         "full_name": "Severe Hyperglycemia Patient",
         "notes": "Marked acute hyperglycemia with cellular acidosis and vagal blunting",
-        "age": 48.0, "gender": "Female", "height_cm": 162.0, "weight_kg": 88.0,
+        "age": 48.0, "gender": "Female", "height_cm": 162.0, "weight_kg": 85.0,
         "family_history": "Yes (1)", "smoking_status": "Current Smoker (1)",
         "fasting_status": "Non-Fasting / Post-Meal", "med_status": "Insulin",
         "diagnosis_option": "Type 1 Diabetes",
@@ -236,7 +244,7 @@ BENCHMARK_PRESETS = {
     },
     "⚠️ Benchmark 5: Acute Hypoglycemia Alert (~62 mg/dL)": {
         "full_name": "Hypoglycemia Emergency Case",
-        "notes": "Acute hypoglycemia under-range episode requiring carbohydrate intake",
+        "notes": "Acute hypoglycemia under-range episode requiring fast-acting carbs",
         "age": 28.0, "gender": "Male", "height_cm": 180.0, "weight_kg": 70.0,
         "family_history": "No (0)", "smoking_status": "Non-Smoker (0)",
         "fasting_status": "Fasting (≥8h)", "med_status": "Insulin",
@@ -248,25 +256,236 @@ BENCHMARK_PRESETS = {
         "hrv_sdnn": 48.0, "hrv_rmssd": 44.0, "hrv_pnn50": 20.0, "hrv_lf_hf": 1.30,
         "reference_bgl": 62.0, "prev_bgl": 85.0
     },
-    "👤 Benchmark 6: Demographic Risk Screen (Elevated Risk / No Sensors)": {
+    "👤 Benchmark 6: Demographic Screening (Elevated Risk / No Sensors)": {
         "full_name": "Community Outpatient Beta",
         "notes": "Routine primary care health check without wearable sensors",
-        "age": 61.0, "gender": "Male", "height_cm": 170.0, "weight_kg": 96.0,
+        "age": 61.0, "gender": "Male", "height_cm": 170.0, "weight_kg": 94.0,
         "family_history": "Yes (1)", "smoking_status": "Current Smoker (1)",
         "fasting_status": "Fasting (≥8h)", "med_status": "None",
         "diagnosis_option": "Unknown / Not Diagnosed",
         "has_sensor": False
     },
-    "👤 Benchmark 7: Demographic Risk Screen (Lower Baseline Risk / No Sensors)": {
+    "👤 Benchmark 7: Demographic Screening (Lower Baseline Risk / No Sensors)": {
         "full_name": "Community Outpatient Alpha",
         "notes": "Young active individual screening without wearable sensors",
-        "age": 26.0, "gender": "Female", "height_cm": 165.0, "weight_kg": 56.0,
+        "age": 25.0, "gender": "Female", "height_cm": 165.0, "weight_kg": 54.0,
         "family_history": "No (0)", "smoking_status": "Non-Smoker (0)",
         "fasting_status": "Fasting (≥8h)", "med_status": "None",
         "diagnosis_option": "None (Healthy)",
         "has_sensor": False
     }
 }
+
+
+# ------------------------------------------------------------------------------
+# Visualization Helper Functions (Plotly)
+# ------------------------------------------------------------------------------
+
+def plot_confidence_interval_gauge(bgl: float, ci_low: float, ci_high: float) -> go.Figure:
+    """
+    Renders horizontal range gauge showing point estimate & 90% prediction interval
+    overlaid on color-coded clinical safety zones.
+    """
+    fig = go.Figure()
+
+    # Safety Zone Rectangles
+    fig.add_vrect(x0=40, x1=70, fillcolor="#dbeafe", opacity=0.45, layer="below", line_width=0, annotation_text="Hypo (<70)", annotation_position="top left")
+    fig.add_vrect(x0=70, x1=140, fillcolor="#dcfce7", opacity=0.45, layer="below", line_width=0, annotation_text="Normal (70–140)", annotation_position="top left")
+    fig.add_vrect(x0=140, x1=200, fillcolor="#fef9c3", opacity=0.45, layer="below", line_width=0, annotation_text="Elevated (140–200)", annotation_position="top left")
+    fig.add_vrect(x0=200, x1=360, fillcolor="#fee2e2", opacity=0.45, layer="below", line_width=0, annotation_text="Severe (≥200)", annotation_position="top left")
+
+    # Prediction Interval Bar
+    fig.add_trace(go.Scatter(
+        x=[ci_low, ci_high], y=[0, 0], mode='lines',
+        line=dict(color='#0284c7', width=14),
+        name='90% Prediction Interval [q0.05, q0.95]',
+        hoverinfo='text',
+        hovertext=f"90% Prediction Interval: [{ci_low} – {ci_high}] mg/dL"
+    ))
+
+    # Point Estimate Diamond Marker
+    fig.add_trace(go.Scatter(
+        x=[bgl], y=[0], mode='markers+text',
+        marker=dict(color='#1e3a8a', size=18, symbol='diamond', line=dict(color='white', width=2)),
+        text=[f"<b>{bgl} mg/dL</b>"], textposition="top center",
+        name='Predicted Blood Glucose',
+        hoverinfo='text',
+        hovertext=f"Estimated BGL: {bgl} mg/dL"
+    ))
+
+    fig.update_layout(
+        title="<b>Calibrated Prediction Interval vs. Clinical Safety Zones</b>",
+        xaxis=dict(title="Blood Glucose Level (mg/dL)", range=[40, 360], zeroline=False),
+        yaxis=dict(showticklabels=False, showgrid=False, range=[-0.5, 0.5]),
+        height=210, margin=dict(l=15, r=15, t=35, b=25), showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=-0.4, xanchor="center", x=0.5)
+    )
+    return fig
+
+
+def plot_feature_contributions(predictor_obj: GlucosePredictor, input_dict: Dict[str, Any]) -> Tuple[go.Figure, str]:
+    """
+    Computes top-8 signed feature contributions and plots horizontal bar chart.
+    """
+    X_df = predictor_obj._prepare_full_sensor_features(input_dict)
+    feature_names = X_df.columns.tolist()
+    importances = predictor_obj.fs_model.feature_importances_
+
+    contributions = []
+    for i, col in enumerate(feature_names):
+        val = X_df.iloc[0, i]
+        imp = importances[i]
+        # Invert physiological scales where lower values represent higher glucose (pH, HRV)
+        multiplier = -1.0 if "ph" in col or "rmssd" in col or "sdnn" in col or "pnn50" in col else 1.0
+        score = val * imp * 100.0 * multiplier
+        contributions.append((col, score))
+
+    contributions.sort(key=lambda x: abs(x[1]), reverse=True)
+    top_8 = contributions[:8]
+
+    label_map = {
+        "saliva_ph_scaled": "Saliva pH Bio-Probe",
+        "hrv_rmssd_scaled": "ECG HRV RMSSD (Vagal Tone)",
+        "hrv_sdnn_scaled": "ECG HRV SDNN (Variability)",
+        "hr_bpm_scaled": "Heart Rate (BPM)",
+        "temperature_c_scaled": "Skin Surface Temp",
+        "ppg_raw_dc_baseline_scaled": "MAX30102 DC Offset",
+        "ppg_raw_ac_p2p_scaled": "MAX30102 AC Peak",
+        "pulse_width_ms_scaled": "PPG Pulse Width",
+        "perfusion_index_scaled": "Perfusion Index (%)",
+        "age_scaled": "Subject Age",
+        "bmi_scaled": "Subject BMI",
+        "diag_type_1": "Type 1 Stratum",
+        "diag_type_2": "Type 2 Stratum",
+        "fasting": "Fasting State"
+    }
+
+    clean_labels = [label_map.get(k, k.replace("_scaled", "").replace("_", " ").title()) for k, v in top_8]
+    values = [round(v, 2) for k, v in top_8]
+    bar_colors = ["#dc2626" if v > 0 else "#16a34a" for v in values]
+
+    top_feature_name = clean_labels[0]
+    top_direction = "increasing" if values[0] > 0 else "lowering"
+    summary_line = f"Primary driver: **{top_feature_name}** ({top_direction} predicted blood glucose relative to population baseline)."
+
+    fig = go.Figure(go.Bar(
+        x=values[::-1], y=clean_labels[::-1], orientation='h',
+        marker=dict(color=bar_colors[::-1]),
+        text=[f"{v:+.1f}" for v in values[::-1]], textposition="outside"
+    ))
+    fig.update_layout(
+        title="<b>Top 8 Physiological Feature Contributions to Prediction</b>",
+        xaxis=dict(title="Relative Impact (Red = Increases BGL, Green = Pulls Toward Normal)", zeroline=True),
+        height=320, margin=dict(l=15, r=25, t=35, b=25)
+    )
+    return fig, summary_line
+
+
+def plot_patient_trend_chart(patient_name: str, current_bgl: float, current_time: str, current_czone: str) -> go.Figure:
+    """
+    Reads data/manual_test_log.csv, filters for patient, and plots longitudinal trend.
+    """
+    records = []
+    if LOG_CSV_PATH.exists():
+        try:
+            df_log = pd.read_csv(LOG_CSV_PATH)
+            if "full_name" in df_log.columns and "predicted_bgl_mg_dl" in df_log.columns:
+                p_df = df_log[df_log["full_name"].astype(str).str.lower() == str(patient_name).lower()]
+                p_df = p_df.dropna(subset=["predicted_bgl_mg_dl"])
+                for _, r in p_df.iterrows():
+                    try:
+                        b_val = float(r["predicted_bgl_mg_dl"])
+                        records.append({
+                            "timestamp": str(r.get("timestamp", ""))[:19].replace("T", " "),
+                            "bgl": b_val,
+                            "czone": str(r.get("clarke_zone", "Zone A"))
+                        })
+                    except (ValueError, TypeError):
+                        pass
+        except Exception:
+            pass
+
+    # Ensure current reading is included as the newest point
+    if not records or records[-1]["bgl"] != current_bgl:
+        records.append({
+            "timestamp": current_time,
+            "bgl": current_bgl,
+            "czone": current_czone
+        })
+
+    if len(records) < 2:
+        return None
+
+    df_trend = pd.DataFrame(records)
+    color_map = []
+    for cz in df_trend["czone"]:
+        if "Zone A" in cz or "Optimal" in cz: color_map.append("#16a34a")
+        elif "Zone B" in cz or "Post-Prandial" in cz: color_map.append("#d97706")
+        else: color_map.append("#dc2626")
+
+    fig = go.Figure()
+
+    # Normal target band (70-140 mg/dL)
+    fig.add_hrect(y0=70, y1=140, fillcolor="#dcfce7", opacity=0.35, layer="below", line_width=0, annotation_text="Target Range (70–140 mg/dL)", annotation_position="top left")
+
+    # Trend line
+    fig.add_trace(go.Scatter(
+        x=df_trend["timestamp"], y=df_trend["bgl"],
+        mode='lines+markers',
+        line=dict(color='#0284c7', width=2.5, shape='spline'),
+        marker=dict(color=color_map, size=11, line=dict(color='white', width=1.5)),
+        name='Blood Glucose (mg/dL)',
+        hovertext=[f"Time: {t}<br>BGL: {b} mg/dL<br>Status: {z}" for t, b, z in zip(df_trend["timestamp"], df_trend["bgl"], df_trend["czone"])],
+        hoverinfo='text'
+    ))
+
+    fig.update_layout(
+        title=f"<b>Longitudinal Glycemic History for {patient_name}</b>",
+        xaxis=dict(title="Timestamp", showgrid=True),
+        yaxis=dict(title="Blood Glucose (mg/dL)", range=[40, max(260.0, df_trend["bgl"].max() + 30)]),
+        height=280, margin=dict(l=15, r=15, t=35, b=25)
+    )
+    return fig
+
+
+def plot_normal_range_comparison(sensor_dict: Dict[str, Any]) -> go.Figure:
+    """
+    Compares entered sensor values against standard physiological reference ranges.
+    """
+    ref_ranges = [
+        ("Saliva pH", float(sensor_dict.get("saliva_ph", 7.25)), 7.0, 7.4, "pH"),
+        ("Skin Temp (°C)", float(sensor_dict.get("temperature_c", 36.6)), 36.1, 37.2, "°C"),
+        ("Heart Rate", float(sensor_dict.get("hr_bpm", 72.0)), 60.0, 80.0, "BPM"),
+        ("SpO2 (%)", float(sensor_dict.get("spo2_pct", 98.0)), 95.0, 100.0, "%"),
+        ("HRV RMSSD", float(sensor_dict.get("hrv_rmssd", 34.0)), 25.0, 65.0, "ms"),
+        ("HRV SDNN", float(sensor_dict.get("hrv_sdnn", 42.0)), 35.0, 80.0, "ms")
+    ]
+
+    names, values, statuses, colors_list = [], [], [], []
+    for label, val, low, high, unit in ref_ranges:
+        names.append(label)
+        values.append(val)
+        if val < low:
+            statuses.append(f"{val} {unit} (Below Normal: {low}–{high})")
+            colors_list.append("#0284c7")
+        elif val > high:
+            statuses.append(f"{val} {unit} (Elevated: {low}–{high})")
+            colors_list.append("#dc2626")
+        else:
+            statuses.append(f"{val} {unit} (Normal Range: {low}–{high})")
+            colors_list.append("#16a34a")
+
+    fig = go.Figure(go.Bar(
+        x=names, y=values,
+        marker=dict(color=colors_list),
+        text=statuses, textposition="auto"
+    ))
+    fig.update_layout(
+        title="<b>Physiological Sensor Readings vs. Normal Reference Ranges</b>",
+        yaxis=dict(title="Measured Transducer Value"),
+        height=260, margin=dict(l=15, r=15, t=35, b=25)
+    )
+    return fig
 
 
 # ------------------------------------------------------------------------------
@@ -308,9 +527,8 @@ def generate_pdf_report(session_data: Dict[str, Any], input_data: Dict[str, Any]
 
     story = []
 
-    # Title & Metadata
     story.append(Paragraph("Non-Invasive Glucose Prediction — Subject Clinical Summary", title_style))
-    story.append(Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} • Model Version: {prediction_res.get('model_version', 'v1.0')}", sub_style))
+    story.append(Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} • Model: {prediction_res.get('model_version', 'v1.0')}", sub_style))
     story.append(HRFlowable(width="100%", thickness=1.5, color=primary_color, spaceBefore=4, spaceAfter=6))
 
     # Session Table
@@ -337,7 +555,6 @@ def generate_pdf_report(session_data: Dict[str, Any], input_data: Dict[str, Any]
 
     # Prediction Results
     story.append(Paragraph("2. Clinical Model Output & Confidence Bounds", h2_style))
-
     if "predicted_bgl_mg_dl" in prediction_res:
         bgl = prediction_res["predicted_bgl_mg_dl"]
         ci = prediction_res["confidence_interval_5th_95th"]
@@ -345,7 +562,7 @@ def generate_pdf_report(session_data: Dict[str, Any], input_data: Dict[str, Any]
             [Paragraph("<b>Predicted Blood Glucose:</b>", cell_bold), Paragraph(f"<b><font size=11 color='#1e3a8a'>{bgl} mg/dL</font></b>", cell_style)],
             [Paragraph("<b>90% Prediction Interval [q0.05, q0.95]:</b>", cell_style), Paragraph(f"<b>[{ci[0]} – {ci[1]} mg/dL]</b> (Width: {prediction_res['interval_width_mg_dl']} mg/dL)", cell_style)],
             [Paragraph("<b>Clarke Error Zone:</b>", cell_style), Paragraph(f"<b>{prediction_res.get('clarke_zone', 'Zone A')}</b>", cell_style)],
-            [Paragraph("<b>Glycemic Rate of Change Trend:</b>", cell_style), Paragraph(str(prediction_res.get("trend", "N/A")), cell_style)],
+            [Paragraph("<b>Glycemic Trend:</b>", cell_style), Paragraph(str(prediction_res.get("trend", "N/A")), cell_style)],
             [Paragraph("<b>Diagnostic Stratum Reliability:</b>", cell_style), Paragraph(str(prediction_res.get("diagnosis_stratum_confidence", "Standard")), cell_style)]
         ]
     else:
@@ -369,7 +586,6 @@ def generate_pdf_report(session_data: Dict[str, Any], input_data: Dict[str, Any]
     story.append(t_pred)
     story.append(Spacer(1, 6))
 
-    # Sensor breakdown
     if "ppg_raw_dc_baseline" in input_data and input_data["ppg_raw_dc_baseline"] is not None:
         story.append(Paragraph("3. Multi-Modal Sensor Parameters Entered", h2_style))
         sensor_rows = [
@@ -390,7 +606,6 @@ def generate_pdf_report(session_data: Dict[str, Any], input_data: Dict[str, Any]
         story.append(t_sens)
         story.append(Spacer(1, 6))
 
-    # Mandatory Legal Box
     disclaimer_rows = [[
         Paragraph(
             "<b>MANDATORY RESEARCH PROTOTYPE DISCLAIMER:</b><br/>"
@@ -469,7 +684,7 @@ st.markdown('<div class="sub-title">Interactive Multi-Modal Sensor Inference & P
 
 # Sidebar: System Diagnostics & Guardrails
 with st.sidebar:
-    st.header("⚙️ System Status & Guardrails")
+    st.header("⚙️ System Status & Diagnostics")
     st.info(
         "**Multi-Modal AI Architecture:**\n"
         "• **Model A (Full-Sensor)**: Random Forest (50 feats, R²=0.8557, MAE=12.13 mg/dL)\n"
@@ -485,7 +700,7 @@ with st.sidebar:
 tab_pred, tab_lab, tab_bench, tab_reports = st.tabs([
     "🎯 Clinical Predictor & Benchmark Presets",
     "🧪 Multi-Modal Sensor Fine-Tuning Lab",
-    "📊 ADA Clinical Guidelines & Benchmarks",
+    "📊 ADA & ICMR Clinical Guidelines",
     "📄 Reports Export & Audit Logs"
 ])
 
@@ -710,6 +925,25 @@ with tab_pred:
         st.markdown("---")
         st.markdown("### 📊 Prediction & Clinical Decision Output")
 
+        # ----------------------------------------------------------------------
+        # Item 6: Model Transparency Panel
+        # ----------------------------------------------------------------------
+        if "predicted_bgl_mg_dl" in prediction_result:
+            st.markdown("<div class='model-badge-fs'>MODEL A: Full-Sensor Multi-Modal Random Forest (R²=0.8557, Validated on Synthetic Data)</div>", unsafe_allow_html=True)
+        else:
+            st.markdown("<div class='model-badge-tab'>MODEL B: Tabular Demographic Screening Classifier (CDC NHANES Scoped, Macro AUROC=0.73)</div>", unsafe_allow_html=True)
+
+        # Type 1 Specific Safety Warning
+        if "Type 1" in diag_clean:
+            st.markdown(
+                "<div class='disclaimer-critical'>"
+                "⚠️ <b>CLINICAL SAFETY AUDIT ALERT (Type 1 Hypoglycemia Caution):</b><br/>"
+                "Validation identified a known Zone D failure mode (Reference 58.0 mg/dL predicted as 101.2 mg/dL — failure to detect hypoglycemia). "
+                "This prototype must NEVER be used for autonomous insulin titration without fingerstick confirmation."
+                "</div>",
+                unsafe_allow_html=True
+            )
+
         if "predicted_bgl_mg_dl" in prediction_result:
             bgl = prediction_result["predicted_bgl_mg_dl"]
             ci = prediction_result["confidence_interval_5th_95th"]
@@ -721,7 +955,7 @@ with tab_pred:
             # Visual Clinical Categorization
             if bgl < 70.0:
                 tier_badge = "<span class='badge-hypo'>⚠️ ACUTE HYPOGLYCEMIA (&lt;70 mg/dL)</span>"
-                tier_msg = "Blood glucose is critically low. Rapid-acting carbohydrate intake is recommended."
+                tier_msg = "Blood glucose is critically low. Rapid-acting carbohydrate intake (15g rule) is recommended."
             elif bgl < 100.0:
                 tier_badge = "<span class='badge-normal'>🟢 NORMAL OPTIMAL FASTING (70–99 mg/dL)</span>"
                 tier_msg = "Glycemic levels are within standard healthy fasting baseline."
@@ -749,29 +983,37 @@ with tab_pred:
             with col_m4:
                 st.metric(label="Glycemic Trend", value=trend_text.split("(")[0])
 
-            # Visual Glycemic Meter Bar
-            meter_val = min(1.0, max(0.0, (bgl - 50.0) / 250.0))
-            st.progress(meter_val)
-            st.caption("Glycemic Spectrum: `[<70 Hypo]` — `[70-99 Normal]` — `[100-125 Prediabetes]` — `[126-199 Elevated]` — `[≥200 Severe]`")
+            # ------------------------------------------------------------------
+            # Item 2: Confidence Interval Visual Range Gauge (Plotly)
+            # ------------------------------------------------------------------
+            st.markdown("#### 🎯 Prediction Uncertainty & Safety Zone Mapping")
+            fig_ci = plot_confidence_interval_gauge(bgl, ci[0], ci[1])
+            st.plotly_chart(fig_ci, use_container_width=True)
 
-            # Stratum safety alert
-            if "Type 1" in diag_clean:
-                st.markdown(f"<div class='disclaimer-critical'>⚠️ <b>Type 1 Clinical Safety Notice:</b> {strat_conf}</div>", unsafe_allow_html=True)
+            # ------------------------------------------------------------------
+            # Item 1: Longitudinal Trend Chart (Plotly)
+            # ------------------------------------------------------------------
+            st.markdown("#### 📈 Longitudinal Patient Glycemic History")
+            fig_trend = plot_patient_trend_chart(full_name, bgl, current_time_str, czone)
+            if fig_trend is not None:
+                st.plotly_chart(fig_trend, use_container_width=True)
             else:
-                st.info(f"📌 **Cohort Reliability:** {strat_conf}")
+                st.info(f"ℹ️ First recorded test session for **{full_name}**. Future submissions will generate a longitudinal glycemic trend line here.")
 
-            # Biomarker Explainability Panel
-            with st.expander("🔍 Physiological Biomarker Contribution Analysis (Why did the AI predict this?)", expanded=True):
-                st.markdown(
-                    f"• **Saliva pH ({sensor_inputs.get('saliva_ph')} pH):** "
-                    f"{'Significant acidic shift (<6.8) consistent with cellular glycolysis and hyperglycemic state.' if sensor_inputs.get('saliva_ph', 7.2) < 6.8 else 'Normal physiological alkaline range (7.20-7.40).'}\n"
-                    f"• **ECG HRV Autonomic Tone (RMSSD {sensor_inputs.get('hrv_rmssd')} ms, SDNN {sensor_inputs.get('hrv_sdnn')} ms):** "
-                    f"{'Marked vagal parasympathetic attenuation; lower HRV reflects acute metabolic stress.' if sensor_inputs.get('hrv_rmssd', 35) < 22 else 'Healthy vagal parasympathetic modulation.'}\n"
-                    f"• **Skin Temperature ({sensor_inputs.get('temperature_c')} °C):** "
-                    f"{'Elevated cutaneous temperature reflecting post-prandial metabolic vasodilation.' if sensor_inputs.get('temperature_c', 36.6) > 36.8 else 'Normal basal thermoregulatory baseline.'}\n"
-                    f"• **Optical PPG Transmittance (DC {sensor_inputs.get('ppg_raw_dc_baseline')} counts, AC {sensor_inputs.get('ppg_raw_ac_p2p')} counts):** "
-                    f"Perfusion Index is {sensor_inputs.get('perfusion_index')}%; pulsatile arterial microcirculation captured by MAX30102."
-                )
+            # ------------------------------------------------------------------
+            # Item 3: Feature Contribution Bar Chart (Plotly)
+            # ------------------------------------------------------------------
+            st.markdown("#### 🔍 Physiological Feature Contributions")
+            fig_feat, summary_line = plot_feature_contributions(predictor, input_payload)
+            st.markdown(summary_line)
+            st.plotly_chart(fig_feat, use_container_width=True)
+
+            # ------------------------------------------------------------------
+            # Item 5: Normal Physiological Range Comparison
+            # ------------------------------------------------------------------
+            st.markdown("#### 🩺 Sensor Readings vs. Normal Physiological Bands")
+            fig_norm = plot_normal_range_comparison(sensor_inputs)
+            st.plotly_chart(fig_norm, use_container_width=True)
 
         else:
             # Tabular Risk Band Display
@@ -816,11 +1058,33 @@ with tab_pred:
 # ==============================================================================
 with tab_lab:
     st.markdown("### 🧪 Real-Time Multi-Modal Sensor Sensitivity Lab")
-    st.markdown("Experiment with real-time parameter tweaking across all 4 sensor transducers to see how the AI inference engine responds:")
+    st.markdown("Experiment with real-time parameter tweaking and simulate dynamic sensitivity curves across all 4 sensor transducers:")
 
-    c_lab1, c_lab2 = st.columns([1.5, 1.5])
-    with c_lab1:
-        st.markdown("#### 🎛️ Live Parameter Controls")
+    # --------------------------------------------------------------------------
+    # Item 4: Dynamic Parameter Sensitivity Sweep Curve
+    # --------------------------------------------------------------------------
+    st.markdown("#### 📈 Interactive Parameter Sensitivity Sweep Curve")
+    st.caption("Select a physiological parameter to sweep across its biological range while holding other inputs at their live slider values:")
+
+    c_sw1, c_sw2 = st.columns([1.5, 2.5])
+    with c_sw1:
+        sweep_param = st.selectbox(
+            "Parameter to Sweep:",
+            options=[
+                "Saliva pH Bio-Probe",
+                "Heart Rate (BPM)",
+                "ECG HRV RMSSD (ms)",
+                "ECG HRV SDNN (ms)",
+                "Skin Surface Temp (°C)",
+                "MAX30102 DC Baseline Offset",
+                "PPG Pulse Width (ms)",
+                "Subject Age (years)",
+                "Subject BMI (kg/m²)"
+            ],
+            index=0
+        )
+
+        st.markdown("#### 🎛️ Live Sandbox Sliders")
         lab_ph = st.slider("Live Saliva pH", 5.5, 8.5, 7.20, 0.05, key="lab_ph")
         lab_hr = st.slider("Live Heart Rate (BPM)", 45.0, 160.0, 75.0, 1.0, key="lab_hr")
         lab_temp = st.slider("Live Skin Temperature (°C)", 34.0, 39.0, 36.6, 0.1, key="lab_temp")
@@ -831,9 +1095,9 @@ with tab_lab:
         lab_age = st.slider("Patient Age", 18.0, 90.0, 50.0, 1.0, key="lab_age")
         lab_bmi = st.slider("Patient BMI", 16.0, 45.0, 28.0, 0.5, key="lab_bmi")
 
-    with c_lab2:
-        st.markdown("#### ⚡ Live Inference Output")
-        test_payload = {
+    with c_sw2:
+        # Base dict for live inference
+        base_payload = {
             "age": lab_age, "gender": "male", "height_cm": 172.0, "weight_kg": 75.0,
             "bmi": lab_bmi, "bmi_category": "Overweight", "family_history": 1, "smoking": 0, "fasting": 1,
             "med_status": "None", "med_taking_insulin": 0, "med_taking_oral": 0, "med_taking_any": 0,
@@ -843,26 +1107,75 @@ with tab_lab:
             "perfusion_index": (lab_ac / lab_dc) * 100.0, "pulse_width_ms": 280.0,
             "hrv_sdnn": lab_sdnn, "hrv_rmssd": lab_rmssd, "hrv_pnn50": 12.0, "hrv_lf_hf_ratio": 1.4
         }
-        live_pred = predictor.predict_full_sensor(test_payload)
 
-        live_bgl = live_pred["predicted_bgl_mg_dl"]
-        live_ci = live_pred["confidence_interval_5th_95th"]
-
-        st.metric(label="Live Model A Predicted BGL", value=f"{live_bgl} mg/dL")
-        st.metric(label="90% Quantile Confidence Range", value=f"[{live_ci[0]} – {live_ci[1]}] mg/dL")
-        st.metric(label="Clarke Zone", value=live_pred["clarke_zone"])
-
-        # Physiological Correlation Insights
-        st.markdown("##### 🧬 Physiological Sensitivity Observations:")
-        if lab_ph < 6.8:
-            st.warning("⚠️ **Acidic Saliva (<6.8)**: Simulates active metabolic glycolysis, elevating predicted glucose.")
+        # Generate sweep range
+        if "Saliva pH" in sweep_param:
+            sweep_x = np.linspace(5.5, 8.5, 30)
+            key_name, current_x, xlabel = "saliva_ph", lab_ph, "Saliva pH (Cellular Acidosis <6.8 vs Alkaline >7.2)"
+        elif "Heart Rate" in sweep_param:
+            sweep_x = np.linspace(45.0, 160.0, 30)
+            key_name, current_x, xlabel = "hr_bpm", lab_hr, "Heart Rate (BPM)"
+        elif "RMSSD" in sweep_param:
+            sweep_x = np.linspace(5.0, 80.0, 30)
+            key_name, current_x, xlabel = "hrv_rmssd", lab_rmssd, "HRV RMSSD (ms) — Vagal Parasympathetic Tone"
+        elif "SDNN" in sweep_param:
+            sweep_x = np.linspace(10.0, 120.0, 30)
+            key_name, current_x, xlabel = "hrv_sdnn", lab_sdnn, "HRV SDNN (ms) — Total Autonomic Variability"
+        elif "Temp" in sweep_param:
+            sweep_x = np.linspace(34.0, 39.0, 30)
+            key_name, current_x, xlabel = "temperature_c", lab_temp, "Skin Surface Temperature (°C)"
+        elif "DC Baseline" in sweep_param:
+            sweep_x = np.linspace(100000.0, 250000.0, 30)
+            key_name, current_x, xlabel = "ppg_raw_dc_baseline", lab_dc, "MAX30102 DC Baseline Offset"
+        elif "Pulse Width" in sweep_param:
+            sweep_x = np.linspace(150.0, 450.0, 30)
+            key_name, current_x, xlabel = "pulse_width_ms", 280.0, "PPG Pulse Width (ms)"
+        elif "Age" in sweep_param:
+            sweep_x = np.linspace(18.0, 85.0, 30)
+            key_name, current_x, xlabel = "age", lab_age, "Subject Age (years)"
         else:
-            st.success("✅ **Normal Saliva pH (≥7.0)**: Supports normoglycemic homeostasis.")
+            sweep_x = np.linspace(16.0, 45.0, 30)
+            key_name, current_x, xlabel = "bmi", lab_bmi, "Subject BMI (kg/m²)"
 
-        if lab_rmssd < 20.0:
-            st.warning("⚠️ **Low HRV RMSSD (<20ms)**: Depressed vagal parasympathetic tone correlates with insulin resistance and acute hyperglycemia.")
-        else:
-            st.success("✅ **Healthy HRV RMSSD (≥30ms)**: Normal parasympathetic autonomic modulation.")
+        sweep_y = []
+        for x_val in sweep_x:
+            t_payload = base_payload.copy()
+            t_payload[key_name] = x_val
+            if key_name == "hr_bpm": t_payload["ppg_hr_bpm"] = x_val
+            res = predictor.predict_full_sensor(t_payload)
+            sweep_y.append(res["predicted_bgl_mg_dl"])
+
+        live_current_pred = predictor.predict_full_sensor(base_payload)
+        current_y = live_current_pred["predicted_bgl_mg_dl"]
+
+        fig_sweep = go.Figure()
+        # Normal BGL target band
+        fig_sweep.add_hrect(y0=70, y1=140, fillcolor="#dcfce7", opacity=0.35, layer="below", line_width=0, annotation_text="Target Normoglycemia (70–140 mg/dL)", annotation_position="top left")
+
+        # Sweep Curve
+        fig_sweep.add_trace(go.Scatter(
+            x=sweep_x, y=sweep_y, mode='lines',
+            line=dict(color='#0284c7', width=3.5, shape='spline'),
+            name=f'Model BGL Response to {sweep_param}'
+        ))
+
+        # Current live marker
+        fig_sweep.add_trace(go.Scatter(
+            x=[current_x], y=[current_y], mode='markers+text',
+            marker=dict(color='#dc2626', size=16, symbol='diamond', line=dict(color='white', width=2)),
+            text=[f"<b>Current: {current_y} mg/dL</b>"], textposition="top center",
+            name='Current Live Sandbox Position'
+        ))
+
+        fig_sweep.update_layout(
+            title=f"<b>Dynamic AI Sensitivity Curve: {sweep_param} vs. Predicted BGL</b>",
+            xaxis=dict(title=xlabel, showgrid=True),
+            yaxis=dict(title="Predicted Blood Glucose (mg/dL)", range=[40, max(260.0, max(sweep_y) + 25)]),
+            height=340, margin=dict(l=15, r=15, t=35, b=25), showlegend=True
+        )
+        st.plotly_chart(fig_sweep, use_container_width=True)
+
+        st.metric(label="Live Model A Predicted BGL", value=f"{current_y} mg/dL", delta=f"90% CI: [{live_current_pred['confidence_interval_5th_95th'][0]} – {live_current_pred['confidence_interval_5th_95th'][1]}] mg/dL", delta_color="off")
 
 
 # ==============================================================================
