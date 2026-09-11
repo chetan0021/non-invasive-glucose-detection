@@ -1,0 +1,64 @@
+{
+  "training_branch": "tabular_only",
+  "num_train_samples": 19317,
+  "num_test_samples": 4832,
+  "target_column": "bgl_mg_dl",
+  "metadata_columns": [
+    "reading_id",
+    "participant_id",
+    "data_source",
+    "training_branch",
+    "diabetes_diagnosis",
+    "glycemic_state_at_reading",
+    "diabetes_status",
+    "bgl_mg_dl"
+  ],
+  "raw_numeric_features": [
+    "age",
+    "bmi"
+  ],
+  "scaled_numeric_features": [
+    "age_scaled",
+    "bmi_scaled"
+  ],
+  "categorical_and_binary_features": [
+    "diag_none",
+    "diag_prediabetes",
+    "diag_type_1",
+    "diag_type_2",
+    "bmi_cat_underweight",
+    "bmi_cat_normal",
+    "bmi_cat_overweight",
+    "bmi_cat_obese",
+    "bmi_cat_missing",
+    "med_taking_insulin",
+    "med_taking_oral",
+    "med_taking_any",
+    "gender_male",
+    "family_history",
+    "smoking",
+    "fasting",
+    "bgl_is_hba1c_derived"
+  ],
+  "all_feature_columns": [
+    "age",
+    "bmi",
+    "diag_none",
+    "diag_prediabetes",
+    "diag_type_1",
+    "diag_type_2",
+    "bmi_cat_underweight",
+    "bmi_cat_normal",
+    "bmi_cat_overweight",
+    "bmi_cat_obese",
+    "bmi_cat_missing",
+    "med_taking_insulin",
+    "med_taking_oral",
+    "med_taking_any",
+    "gender_male",
+    "family_history",
+    "smoking",
+    "fasting",
+    "bgl_is_hba1c_derived"
+  ]
+}

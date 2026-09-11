@@ -1,0 +1,113 @@
+{
+  "model_architecture": "XGBoost",
+  "training_branch": "tabular_only",
+  "training_date": "2026-09-10",
+  "num_train_samples": 19312,
+  "num_train_participants": 16672,
+  "num_test_samples": 4837,
+  "num_test_participants": 4168,
+  "feature_list": [
+    "age_scaled",
+    "bmi_scaled",
+    "diag_none",
+    "diag_prediabetes",
+    "diag_type_1",
+    "diag_type_2",
+    "bmi_cat_underweight",
+    "bmi_cat_normal",
+    "bmi_cat_overweight",
+    "bmi_cat_obese",
+    "bmi_cat_missing",
+    "med_taking_insulin",
+    "med_taking_oral",
+    "med_taking_any",
+    "gender_male",
+    "family_history",
+    "smoking",
+    "fasting",
+    "bgl_is_hba1c_derived"
+  ],
+  "best_hyperparameters": {
+    "learning_rate": 0.05,
+    "max_depth": 4,
+    "n_estimators": 100,
+    "subsample": 0.8
+  },
+  "cv_performance": {
+    "CV_R2_mean": 0.1545,
+    "CV_R2_std": 0.0075,
+    "CV_MAE_mean": 55.5,
+    "CV_RMSE_mean": 70.81
+  },
+  "test_performance": {
+    "N": 4837,
+    "MAE": 56.46,
+    "RMSE": 72.12,
+    "R2": 0.1663,
+    "MARD": 41.2,
+    "Zone_A": 41.64,
+    "Zone_B": 45.83,
+    "Zone_C": 5.09,
+    "Zone_D": 7.44,
+    "Zone_E": 0.0,
+    "Zone_AB": 87.47
+  },
+  "stratified_test_performance": {
+    "None": {
+      "N": 409,
+      "MAE": 9.51,
+      "RMSE": 15.06,
+      "R2": 0.0227,
+      "MARD": 9.05,
+      "Zone_A": 92.18,
+      "Zone_B": 7.33,
+      "Zone_C": 0.0,
+      "Zone_D": 0.49,
+      "Zone_E": 0.0,
+      "Zone_AB": 99.51,
+      "Low_Confidence": false
+    },
+    "Prediabetes": {
+      "N": 16,
+      "MAE": 20.26,
+      "RMSE": 25.93,
+      "R2": -0.1582,
+      "MARD": 15.69,
+      "Zone_A": 75.0,
+      "Zone_B": 25.0,
+      "Zone_C": 0.0,
+      "Zone_D": 0.0,
+      "Zone_E": 0.0,
+      "Zone_AB": 100.0,
+      "Low_Confidence": false
+    },
+    "Type 1": {
+      "N": 367,
+      "MAE": 69.76,
+      "RMSE": 88.56,
+      "R2": 0.1118,
+      "MARD": 50.13,
+      "Zone_A": 47.41,
+      "Zone_B": 37.6,
+      "Zone_C": 14.99,
+      "Zone_D": 0.0,
+      "Zone_E": 0.0,
+      "Zone_AB": 85.01,
+      "Low_Confidence": false
+    },
+    "Type 2": {
+      "N": 4045,
+      "MAE": 60.15,
+      "RMSE": 74.04,
+      "R2": 0.0728,
+      "MARD": 43.75,
+      "Zone_A": 35.87,
+      "Zone_B": 50.56,
+      "Zone_C": 4.72,
+      "Zone_D": 8.85,
+      "Zone_E": 0.0,
+      "Zone_AB": 86.43,
+      "Low_Confidence": false
+    }
+  }
+}
