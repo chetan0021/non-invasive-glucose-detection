@@ -33,8 +33,12 @@ else:
 
 # Compatibility aliases for scikit-learn version differences during pickle load
 try:
-    import sklearn._loss as _loss_mod
-    sys.modules['_loss'] = _loss_mod
+    import sklearn._loss as _loss_pkg
+    import sklearn._loss._loss as _loss_inner
+    sys.modules['_loss'] = _loss_inner
+    for attr in dir(_loss_inner):
+        if not hasattr(_loss_pkg, attr):
+            setattr(_loss_pkg, attr, getattr(_loss_inner, attr))
 except (ImportError, AttributeError):
     try:
         import sklearn.ensemble._gb_losses as _loss_mod
