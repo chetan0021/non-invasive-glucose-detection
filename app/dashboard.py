@@ -533,6 +533,15 @@ with tab_pred:
 
         # Section 2: Personal Demographics
         st.markdown("#### 2. Personal Demographics & Lifestyle Biometrics")
+
+        clinical_standard = st.radio(
+            "Population Clinical Standard:",
+            options=["🇮🇳 ICMR & RSSDI Guidelines (Asian Indian Standards — Recommended)", "🌐 ADA & WHO Guidelines (Global Standards)"],
+            index=0,
+            horizontal=True,
+            help="ICMR & RSSDI use Asian Indian BMI cutoffs (<18.5 Underweight, 18.5-22.9 Normal, 23.0-24.9 Overweight, ≥25.0 Obese) to account for higher visceral body fat and early metabolic risk."
+        )
+
         c_p1, c_p2, c_p3, c_p4 = st.columns(4)
         with c_p1:
             age = st.number_input("Age (years)", min_value=1.0, max_value=110.0, value=float(p_data.get("age", 45.0)), step=1.0)
@@ -557,17 +566,31 @@ with tab_pred:
             m_idx = med_opts.index(p_data.get("med_status", "None")) if p_data.get("med_status") in med_opts else 0
             med_status = st.selectbox("Medication Status", options=med_opts, index=m_idx)
 
-        # Live BMI Calculation
+        # Live BMI Calculation (ICMR vs WHO/ADA)
         height_m = height_cm / 100.0
         computed_bmi = round(weight_kg / (height_m ** 2), 1)
-        if computed_bmi < 18.5:
-            bmi_cat, bmi_color = "Underweight", "#38bdf8"
-        elif computed_bmi < 25.0:
-            bmi_cat, bmi_color = "Normal Weight", "#22c55e"
-        elif computed_bmi < 30.0:
-            bmi_cat, bmi_color = "Overweight", "#f59e0b"
+
+        is_indian = "ICMR" in clinical_standard
+        if is_indian:
+            if computed_bmi < 18.5:
+                bmi_cat, bmi_color = "Underweight", "#38bdf8"
+            elif computed_bmi < 23.0:
+                bmi_cat, bmi_color = "Normal Weight (ICMR 18.5–22.9)", "#22c55e"
+            elif computed_bmi < 25.0:
+                bmi_cat, bmi_color = "Overweight (ICMR Asian Indian Cutoff 23.0–24.9)", "#f59e0b"
+            elif computed_bmi < 30.0:
+                bmi_cat, bmi_color = "Class I Obesity (ICMR ≥25.0 kg/m²)", "#ef4444"
+            else:
+                bmi_cat, bmi_color = "Class II Severe Obesity (ICMR ≥30.0 kg/m²)", "#b91c1c"
         else:
-            bmi_cat, bmi_color = "Obese (Class I-III)", "#ef4444"
+            if computed_bmi < 18.5:
+                bmi_cat, bmi_color = "Underweight", "#38bdf8"
+            elif computed_bmi < 25.0:
+                bmi_cat, bmi_color = "Normal Weight (WHO/ADA 18.5–24.9)", "#22c55e"
+            elif computed_bmi < 30.0:
+                bmi_cat, bmi_color = "Overweight (WHO/ADA 25.0–29.9)", "#f59e0b"
+            else:
+                bmi_cat, bmi_color = "Obese (WHO/ADA ≥30.0 kg/m²)", "#ef4444"
 
         diag_opts = ["Unknown / Not Diagnosed", "None (Healthy)", "Prediabetes", "Type 1 Diabetes", "Type 2 Diabetes"]
         d_idx = diag_opts.index(p_data.get("diagnosis_option", "Unknown / Not Diagnosed")) if p_data.get("diagnosis_option") in diag_opts else 0
@@ -843,30 +866,39 @@ with tab_lab:
 
 
 # ==============================================================================
-# TAB 3: Clinical Benchmarks & Reference Standards
+# TAB 3: Clinical Benchmarks & Reference Standards (ICMR, RSSDI & ADA)
 # ==============================================================================
 with tab_bench:
-    st.markdown("### 📊 Clinical Benchmark Thresholds & Scientific Standards")
-    st.markdown("Reference guidelines from the **American Diabetes Association (ADA)** and published biomedical literature:")
+    st.markdown("### 📊 Clinical Diagnostic Thresholds: ICMR (India) vs. ADA (Global)")
+    st.markdown("Comparative standards from the **Indian Council of Medical Research (ICMR)**, **Research Society for the Study of Diabetes in India (RSSDI)**, and **American Diabetes Association (ADA)**:")
 
     c_b1, c_b2 = st.columns(2)
     with c_b1:
-        st.markdown("#### 🩺 ADA Diagnostic Glucose Cutoffs")
+        st.markdown("#### 🇮🇳 ICMR / RSSDI & ADA Diagnostic Glucose Cutoffs")
         st.table(pd.DataFrame({
-            "Glycemic Category": ["Hypoglycemia", "Normal Glycemia", "Prediabetes (Impaired)", "Diabetes Mellitus", "Severe Hyperglycemia"],
-            "Fasting Plasma Glucose (mg/dL)": ["< 70 mg/dL", "70 – 99 mg/dL", "100 – 125 mg/dL", "≥ 126 mg/dL", "≥ 200 mg/dL"],
+            "Glycemic Category": ["Hypoglycemia", "Normal Glycemia", "Prediabetes (Impaired Glucose)", "Diabetes Mellitus", "Severe Hyperglycemia"],
+            "Fasting Glucose (mg/dL)": ["< 70 mg/dL", "70 – 99 mg/dL", "100 – 125 mg/dL", "≥ 126 mg/dL", "≥ 200 mg/dL"],
             "2h Post-Prandial (mg/dL)": ["< 70 mg/dL", "70 – 139 mg/dL", "140 – 199 mg/dL", "≥ 200 mg/dL", "≥ 250 mg/dL"],
-            "Clinical Action": ["Emergency Fast Carbohydrates", "Annual Wellness Screening", "Lifestyle & Diet Intervention", "Physician Consultation & Therapy", "Immediate Medical Care"]
+            "Clinical Action (ICMR/RSSDI)": ["Immediate Fast Sugars (15g rule)", "Annual Health Screening", "Diet & Lifestyle Modification", "Consult Diabetologist / OADs", "Urgent Clinical Attention"]
         }))
 
     with c_b2:
-        st.markdown("#### 🎯 Clarke Error Grid Analysis Tiers")
+        st.markdown("#### ⚖️ BMI Cutoff Comparison: Asian Indian (ICMR) vs Western (WHO/ADA)")
         st.table(pd.DataFrame({
-            "Clarke Zone": ["Zone A (Optimal)", "Zone B (Acceptable)", "Zone C (Over-correction)", "Zone D (Failure to detect)", "Zone E (Erroneous treatment)"],
-            "Accuracy Bound": ["Within ±20% of reference BGL", "Outside ±20% but clinically benign", "Unnecessary corrective action", "Dangerous failure to detect hypo/hyper", "Opposite treatment triggered"],
-            "Our Model A Result": ["93.75% of held-out test points", "5.47% of held-out test points", "0.00%", "0.78% (1 single Type 1 hypo point)", "0.00%"],
-            "Safety Tier": ["Clinically Safe", "Clinically Safe", "Clinically Unacceptable", "Clinical Hazard", "Extreme Danger"]
+            "Classification": ["Underweight", "Normal / Healthy", "Overweight", "Class I Obesity", "Class II Severe Obesity"],
+            "Asian Indian Cutoff (ICMR / RSSDI)": ["< 18.5 kg/m²", "18.5 – 22.9 kg/m²", "23.0 – 24.9 kg/m²", "25.0 – 29.9 kg/m²", "≥ 30.0 kg/m²"],
+            "Western Cutoff (WHO / ADA)": ["< 18.5 kg/m²", "18.5 – 24.9 kg/m²", "25.0 – 29.9 kg/m²", "30.0 – 34.9 kg/m²", "≥ 35.0 kg/m²"],
+            "Clinical Significance": ["Nutritional assessment", "Target healthy range", "High visceral fat risk in Indians", "Cardiometabolic risk elevated", "High insulin resistance"]
         }))
+
+    st.markdown("---")
+    st.markdown("#### 🎯 Clarke Error Grid Analysis Tiers (Clinical Accuracy Standard)")
+    st.table(pd.DataFrame({
+        "Clarke Zone": ["Zone A (Optimal)", "Zone B (Acceptable)", "Zone C (Over-correction)", "Zone D (Failure to detect)", "Zone E (Erroneous treatment)"],
+        "Accuracy Bound": ["Within ±20% of reference BGL", "Outside ±20% but clinically benign", "Unnecessary corrective action", "Dangerous failure to detect hypo/hyper", "Opposite treatment triggered"],
+        "Our Model A Result": ["93.75% of held-out test points", "5.47% of held-out test points", "0.00%", "0.78% (1 single Type 1 hypo point)", "0.00%"],
+        "Safety Tier": ["Clinically Safe", "Clinically Safe", "Clinically Unacceptable", "Clinical Hazard", "Extreme Danger"]
+    }))
 
 
 # ==============================================================================
