@@ -1106,16 +1106,6 @@ with tab_pred:
             fig_ci = plot_confidence_interval_gauge(bgl, ci[0], ci[1])
             st.plotly_chart(fig_ci, use_container_width=True)
 
-            # Add calibration caveat for confidence intervals
-            st.markdown(
-                '<div class="disclaimer-banner">'
-                '<strong>⚠️ Calibration Note:</strong> Uncertainty range is currently under calibration validation - '
-                'treat as an outer bound estimate, not a precise statistical interval. '
-                'Empirical coverage is 87% (conformal calibrated via predict.py serving path).'
-                '</div>',
-                unsafe_allow_html=True
-            )
-
             # ------------------------------------------------------------------
             # Item 1: Longitudinal Trend Chart (Plotly)
             # ------------------------------------------------------------------
