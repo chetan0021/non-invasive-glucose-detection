@@ -197,15 +197,16 @@ class GlucosePredictor:
 
     def _prepare_tabular_features(self, raw_dict: Dict[str, Any]) -> pd.DataFrame:
         """
-        Transforms demographic and lifestyle inputs into the pure 9-dimensional
+        Transforms demographic and lifestyle inputs into the pure 23-dimensional
         feature vector for Model B (NHANES scoped).
         """
         age = float(raw_dict.get("age", 45.0))
         bmi = float(raw_dict.get("bmi", 26.5))
+        waist_cm = float(raw_dict.get("waist_circumference_cm", 88.0))
 
-        # Scale Age and BMI using Tabular Scaler
-        scaled_age_bmi = self.tab_scaler.transform(pd.DataFrame([{"age": age, "bmi": bmi}]))[0]
-        age_scaled, bmi_scaled = scaled_age_bmi[0], scaled_age_bmi[1]
+        # Scale Age, BMI, and Waist Circumference using Tabular Scaler
+        scaled_nums = self.tab_scaler.transform(pd.DataFrame([{"age": age, "bmi": bmi, "waist_circumference_cm": waist_cm}]))[0]
+        age_scaled, bmi_scaled, waist_scaled = scaled_nums[0], scaled_nums[1], scaled_nums[2]
 
         gender = str(raw_dict.get("gender", "male")).lower()
         gender_male = 1 if gender in ["male", "m", "1", 1] else 0
@@ -215,17 +216,55 @@ class GlucosePredictor:
         bmi_cat_overweight = 1 if 25.0 <= bmi < 30.0 else 0
         bmi_cat_obese = 1 if bmi >= 30.0 else 0
 
+        # Race/Ethnicity (ADA Risk Groups)
+        race_str = str(raw_dict.get("race_ethnicity", "non_hispanic_white")).lower()
+        race_white = 1 if "white" in race_str else 0
+        race_black = 1 if "black" in race_str or "african" in race_str else 0
+        race_hispanic = 1 if "hispanic" in race_str or "latino" in race_str or "mexican" in race_str else 0
+        race_asian = 1 if "asian" in race_str or "indian" in race_str else 0
+        race_other = 1 if not any([race_white, race_black, race_hispanic, race_asian]) else 0
+
+        # Physical Activity Level
+        pa_str = str(raw_dict.get("physical_activity_level", "moderate")).lower()
+        phys_active = 1 if "active" in pa_str and "moderate" not in pa_str and "sedentary" not in pa_str else 0
+        phys_moderate = 1 if "moderate" in pa_str else 0
+        phys_sedentary = 1 if "sedentary" in pa_str or "inactive" in pa_str else 0
+
+        # Comorbidities
+        htn = int(raw_dict.get("hypertension", 0))
+        chol = int(raw_dict.get("high_cholesterol", 0))
+
+        # Gestational Diabetes History
+        gdm_val = str(raw_dict.get("gestational_diabetes", "not_applicable" if gender_male else "no")).lower()
+        gdm_pos = 1 if (not gender_male and ("yes" in gdm_val or gdm_val in ["1", 1])) else 0
+        gdm_neg = 1 if (not gender_male and ("no" in gdm_val or gdm_val in ["0", 0])) else 0
+        gdm_na = 1 if gender_male else 0
+
         fam_hist = int(raw_dict.get("family_history", 0))
         smoking = int(raw_dict.get("smoking", 0))
 
         feat_dict = {
             "age_scaled": age_scaled,
             "bmi_scaled": bmi_scaled,
+            "waist_circumference_cm_scaled": waist_scaled,
             "gender_male": gender_male,
             "bmi_cat_underweight": bmi_cat_underweight,
             "bmi_cat_normal": bmi_cat_normal,
             "bmi_cat_overweight": bmi_cat_overweight,
             "bmi_cat_obese": bmi_cat_obese,
+            "race_white": race_white,
+            "race_black": race_black,
+            "race_hispanic": race_hispanic,
+            "race_asian": race_asian,
+            "race_other": race_other,
+            "phys_act_active": phys_active,
+            "phys_act_moderate": phys_moderate,
+            "phys_act_sedentary": phys_sedentary,
+            "hypertension": htn,
+            "high_cholesterol": chol,
+            "gdm_positive": gdm_pos,
+            "gdm_negative": gdm_neg,
+            "gdm_male_na": gdm_na,
             "family_history": fam_hist,
             "smoking": smoking
         }
@@ -376,7 +415,7 @@ class GlucosePredictor:
             "clinical_guidance": guidance,
             "predicted_risk_probabilities": prob_dict,
             "model_confidence_note": (
-                "Demographic screening only — AUROC=0.73, cannot reliably detect early prediabetes. "
+                f"Demographic screening only — Macro AUROC={self.tab_meta.get('macro_auroc', 0.87):.2f}, cannot reliably detect early prediabetes. "
                 "This is not a glucose measurement. Recommend fasting glucose or HbA1c test for definitive screening."
             ),
             "model_version": "Model B (Tabular Demographic Risk Classifier v1.0 - NHANES Scoped)",

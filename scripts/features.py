@@ -261,6 +261,7 @@ def process_full_sensor_features(
 TABULAR_NUMERIC_RAW = [
     "age",
     "bmi",
+    "waist_circumference_cm",
 ]
 
 def process_tabular_features(
@@ -276,27 +277,51 @@ def process_tabular_features(
 
     print(f"  Tabular Train Rows: {len(train_tab)} | Test Rows: {len(test_tab)}")
 
-    # 1. Categorical Encodings
-    # Gender (Binary M=1, F=0)
+    # 1. Categorical & Clinical Encodings
     for df in [train_tab, test_tab]:
+        # Gender (Binary M=1, F=0)
         df["gender_male"] = (df["gender"] == "M").astype(int)
 
-    # Diabetes Diagnosis (One-Hot)
-    for df in [train_tab, test_tab]:
+        # Race / Ethnicity (ADA Risk Test Groupings)
+        r = df["race_ethnicity"].fillna("unknown").astype(str).str.lower()
+        df["race_white"] = (r == "non_hispanic_white").astype(int)
+        df["race_black"] = (r == "non_hispanic_black").astype(int)
+        df["race_hispanic"] = (r.isin(["mexican_american", "other_hispanic"])).astype(int)
+        df["race_asian"] = (r == "non_hispanic_asian").astype(int)
+        df["race_other"] = (r.isin(["other_multiracial", "unknown"])).astype(int)
+
+        # Physical Activity Level (Active / Moderate / Sedentary)
+        pa = df["physical_activity_level"].fillna("unknown").astype(str).str.lower()
+        df["phys_act_active"] = (pa == "active").astype(int)
+        df["phys_act_moderate"] = (pa == "moderate").astype(int)
+        df["phys_act_sedentary"] = (pa == "sedentary").astype(int)
+
+        # Hypertension & High Cholesterol History
+        df["hypertension"] = (df["hypertension"] == 1.0).astype(int)
+        df["high_cholesterol"] = (df["high_cholesterol"] == 1.0).astype(int)
+
+        # Gestational Diabetes History (Women only; Men coded as distinct NA category)
+        gdm = df["gestational_diabetes"].fillna("unknown").astype(str).str.lower()
+        df["gdm_positive"] = (gdm == "yes").astype(int)
+        df["gdm_negative"] = (gdm == "no").astype(int)
+        df["gdm_male_na"] = (gdm == "not_applicable").astype(int)
+        df["gdm_unknown"] = (gdm.isin(["unknown", "nan"])).astype(int)
+
+        # Central Obesity / Waist Circumference Missing Indicator
+        df["waist_cm_missing"] = df["waist_circumference_cm"].isna().astype(int)
+
+        # Diabetes Diagnosis (One-Hot)
         for diag in DIAGNOSIS_CATEGORIES:
             col_name = f"diag_{diag.replace(' ', '_').lower()}"
             df[col_name] = (df["diabetes_diagnosis"] == diag).astype(int)
 
-    # BMI Category (One-Hot)
-    train_tab["bmi_category"] = encode_bmi_category(train_tab["bmi"])
-    test_tab["bmi_category"] = encode_bmi_category(test_tab["bmi"])
-    for df in [train_tab, test_tab]:
+        # BMI Category (One-Hot)
+        df["bmi_category"] = encode_bmi_category(df["bmi"])
         for b_cat in BMI_CATEGORIES:
             col_name = f"bmi_cat_{b_cat}"
             df[col_name] = (df["bmi_category"] == b_cat).astype(int)
 
-    # Clinical Binary Indicators
-    for df in [train_tab, test_tab]:
+        # Clinical Binary Indicators
         df["family_history"] = df["family_history"].fillna(0).astype(int)
         df["smoking"] = df["smoking"].fillna(0).astype(int)
         df["fasting"] = df["fasting"].fillna(0).astype(int)
@@ -309,13 +334,22 @@ def process_tabular_features(
     diag_onehot_cols = [f"diag_{diag.replace(' ', '_').lower()}" for diag in DIAGNOSIS_CATEGORIES]
     bmi_onehot_cols = [f"bmi_cat_{b_cat}" for b_cat in BMI_CATEGORIES]
     med_cols = ["med_taking_insulin", "med_taking_oral", "med_taking_any"]
-    clinical_binary_cols = ["gender_male", "family_history", "smoking", "fasting", "bgl_is_hba1c_derived"]
+    race_cols = ["race_white", "race_black", "race_hispanic", "race_asian", "race_other"]
+    pa_cols = ["phys_act_active", "phys_act_moderate", "phys_act_sedentary"]
+    gdm_cols = ["gdm_positive", "gdm_negative", "gdm_male_na", "gdm_unknown"]
+    clinical_binary_cols = [
+        "gender_male", "family_history", "smoking", "fasting", "bgl_is_hba1c_derived",
+        "hypertension", "high_cholesterol", "waist_cm_missing"
+    ]
 
     feature_cols = (
         TABULAR_NUMERIC_RAW
         + diag_onehot_cols
         + bmi_onehot_cols
         + med_cols
+        + race_cols
+        + pa_cols
+        + gdm_cols
         + clinical_binary_cols
     )
 
@@ -324,7 +358,7 @@ def process_tabular_features(
     assert not any("glycemic_state" in c for c in feature_cols), "CRITICAL ERROR: glycemic_state leaked into feature set!"
     print(f"  >>> LEAKAGE CHECK CONFIRMED: diabetes_status & glycemic_state excluded from model features ({len(feature_cols)} total features).")
 
-    # Impute train medians for tabular numerics
+    # Impute train medians for tabular numerics (age, bmi, waist_circumference_cm)
     for col in TABULAR_NUMERIC_RAW:
         med_val = float(train_tab[col].dropna().median())
         train_tab[col] = train_tab[col].fillna(med_val)
@@ -363,11 +397,9 @@ def process_tabular_features(
         "metadata_columns": meta_cols,
         "raw_numeric_features": TABULAR_NUMERIC_RAW,
         "scaled_numeric_features": scaled_cols,
-        "categorical_and_binary_features": diag_onehot_cols + bmi_onehot_cols + med_cols + clinical_binary_cols,
+        "categorical_and_binary_features": diag_onehot_cols + bmi_onehot_cols + med_cols + race_cols + pa_cols + gdm_cols + clinical_binary_cols,
         "all_feature_columns": feature_cols
     }
-
-    return train_out, test_out, scaler, manifest
 
     return train_out, test_out, scaler, manifest
 

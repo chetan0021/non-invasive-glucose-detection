@@ -4,10 +4,10 @@
   "validation_status": "synthetic_self_consistency_only",
   "validation_note": "Validation metrics reflect synthetic self-consistency only. No real paired PPG+glucose data has been used in training or evaluation yet. This model must not be reported or deployed as reflecting real-world clinical accuracy.",
   "training_date": "2026-09-10",
-  "num_train_samples": 488,
-  "num_train_participants": 119,
-  "num_test_samples": 128,
-  "num_test_participants": 31,
+  "num_train_samples": 493,
+  "num_train_participants": 120,
+  "num_test_samples": 123,
+  "num_test_participants": 30,
   "feature_list": [
     "ppg_raw_dc_baseline_scaled",
     "ppg_raw_ac_p2p_scaled",
@@ -61,37 +61,37 @@
     "fasting"
   ],
   "best_hyperparameters": {
-    "max_depth": 12,
+    "max_depth": 8,
     "min_samples_leaf": 1,
-    "min_samples_split": 2,
+    "min_samples_split": 5,
     "n_estimators": 150
   },
   "cv_performance": {
-    "CV_R2_mean": 0.8182,
+    "CV_R2_mean": 0.8205,
     "CV_R2_std": 0.0432,
-    "CV_MAE_mean": 15.43,
-    "CV_RMSE_mean": 21.85
+    "CV_MAE_mean": 15.36,
+    "CV_RMSE_mean": 21.76
   },
   "test_performance": {
-    "N": 128,
-    "MAE": 12.13,
-    "RMSE": 16.6,
-    "R2": 0.8557,
-    "MARD": 8.78,
-    "Zone_A": 93.75,
-    "Zone_B": 5.47,
+    "N": 123,
+    "MAE": 12.28,
+    "RMSE": 16.89,
+    "R2": 0.8528,
+    "MARD": 8.83,
+    "Zone_A": 93.5,
+    "Zone_B": 5.69,
     "Zone_C": 0.0,
-    "Zone_D": 0.78,
+    "Zone_D": 0.81,
     "Zone_E": 0.0,
-    "Zone_AB": 99.22
+    "Zone_AB": 99.19
   },
   "stratified_test_performance": {
     "None": {
-      "N": 35,
-      "MAE": 7.99,
-      "RMSE": 10.01,
-      "R2": 0.6123,
-      "MARD": 7.43,
+      "N": 30,
+      "MAE": 7.8,
+      "RMSE": 9.74,
+      "R2": 0.6475,
+      "MARD": 7.33,
       "Zone_A": 100.0,
       "Zone_B": 0.0,
       "Zone_C": 0.0,
@@ -102,10 +102,10 @@
     },
     "Prediabetes": {
       "N": 27,
-      "MAE": 7.39,
-      "RMSE": 9.16,
-      "R2": 0.8436,
-      "MARD": 5.59,
+      "MAE": 6.88,
+      "RMSE": 8.77,
+      "R2": 0.8566,
+      "MARD": 5.23,
       "Zone_A": 100.0,
       "Zone_B": 0.0,
       "Zone_C": 0.0,
@@ -116,10 +116,10 @@
     },
     "Type 1": {
       "N": 24,
-      "MAE": 20.87,
-      "RMSE": 26.71,
-      "R2": 0.7391,
-      "MARD": 13.65,
+      "MAE": 20.96,
+      "RMSE": 26.62,
+      "R2": 0.7407,
+      "MARD": 13.85,
       "Zone_A": 79.17,
       "Zone_B": 16.67,
       "Zone_C": 0.0,
@@ -130,10 +130,10 @@
     },
     "Type 2": {
       "N": 42,
-      "MAE": 13.64,
-      "RMSE": 17.16,
-      "R2": 0.7934,
-      "MARD": 9.16,
+      "MAE": 14.0,
+      "RMSE": 17.7,
+      "R2": 0.7803,
+      "MARD": 9.35,
       "Zone_A": 92.86,
       "Zone_B": 7.14,
       "Zone_C": 0.0,
@@ -144,9 +144,9 @@
     }
   },
   "stacked_ensemble_comparison": {
-    "rf_test_r2": 0.8557,
-    "rf_test_mae": 12.13,
-    "stacked_test_r2": 0.8621,
-    "stacked_test_mae": 12.41
+    "rf_test_r2": 0.8528,
+    "rf_test_mae": 12.28,
+    "stacked_test_r2": 0.8567,
+    "stacked_test_mae": 12.76
   }
 }

@@ -16,80 +16,94 @@
   "feature_list": [
     "age_scaled",
     "bmi_scaled",
+    "waist_circumference_cm_scaled",
     "gender_male",
     "bmi_cat_underweight",
     "bmi_cat_normal",
     "bmi_cat_overweight",
     "bmi_cat_obese",
+    "race_white",
+    "race_black",
+    "race_hispanic",
+    "race_asian",
+    "race_other",
+    "phys_act_active",
+    "phys_act_moderate",
+    "phys_act_sedentary",
+    "hypertension",
+    "high_cholesterol",
+    "gdm_positive",
+    "gdm_negative",
+    "gdm_male_na",
     "family_history",
     "smoking"
   ],
-  "macro_auroc": 0.7296,
+  "macro_auroc": 0.8092,
   "per_class_auroc": {
-    "healthy_risk": 0.7904,
-    "elevated_risk": 0.5733,
-    "diabetic_risk": 0.8253
+    "healthy_risk": 0.8127,
+    "elevated_risk": 0.7302,
+    "diabetic_risk": 0.8847
   },
   "brier_scores": {
-    "healthy_risk": 0.2826,
-    "elevated_risk": 0.099,
-    "diabetic_risk": 0.1351
+    "healthy_risk": 0.2385,
+    "elevated_risk": 0.1284,
+    "diabetic_risk": 0.1127
   },
   "confusion_matrix": [
     [
-      218,
-      73,
-      112
+      222,
+      62,
+      74
     ],
     [
-      5,
-      2,
-      4
+      15,
+      28,
+      17
     ],
     [
       9,
-      8,
-      77
+      6,
+      75
     ]
   ],
   "classification_report": {
     "healthy_risk": {
-      "precision": 0.9396551724137931,
-      "recall": 0.5409429280397022,
-      "f1-score": 0.6866141732283465,
-      "support": 403.0
+      "precision": 0.9024390243902439,
+      "recall": 0.6201117318435754,
+      "f1-score": 0.7350993377483444,
+      "support": 358.0
     },
     "elevated_risk": {
-      "precision": 0.024096385542168676,
-      "recall": 0.18181818181818182,
-      "f1-score": 0.0425531914893617,
-      "support": 11.0
+      "precision": 0.2916666666666667,
+      "recall": 0.4666666666666667,
+      "f1-score": 0.358974358974359,
+      "support": 60.0
     },
     "diabetic_risk": {
-      "precision": 0.39896373056994816,
-      "recall": 0.8191489361702128,
-      "f1-score": 0.5365853658536586,
-      "support": 94.0
+      "precision": 0.45180722891566266,
+      "recall": 0.8333333333333334,
+      "f1-score": 0.5859375,
+      "support": 90.0
     },
-    "accuracy": 0.5846456692913385,
+    "accuracy": 0.639763779527559,
     "macro avg": {
-      "precision": 0.45423842950863663,
-      "recall": 0.513970015342699,
-      "f1-score": 0.4219175768571222,
+      "precision": 0.5486376399908578,
+      "recall": 0.6400372439478584,
+      "f1-score": 0.5600037322409012,
       "support": 508.0
     },
     "weighted avg": {
-      "precision": 0.8197808767663339,
-      "recall": 0.5846456692913385,
-      "f1-score": 0.6449067348575799,
+      "precision": 0.7504642152246397,
+      "recall": 0.639763779527559,
+      "f1-score": 0.6642488178196236,
       "support": 508.0
     }
   },
   "clinical_rebalancing_audit": {
-    "elevated_risk_precision": 0.0241,
-    "elevated_risk_recall": 0.1818,
-    "elevated_risk_f1": 0.0426,
-    "elevated_risk_auroc": 0.5733,
+    "elevated_risk_precision": 0.2917,
+    "elevated_risk_recall": 0.4667,
+    "elevated_risk_f1": 0.359,
+    "elevated_risk_auroc": 0.7302,
     "clinical_finding": "Despite class weighting, distinguishing prediabetes from normoglycemic adults using pure demographics yields low precision (2.41%) due to massive metabolic overlap in age and BMI distributions without biochemical glucose/HbA1c assays."
   },
   "dataset_shortcut_rejection_audit": {

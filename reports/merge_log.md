@@ -29,8 +29,8 @@
 ### Cross-Tab: `diabetes_diagnosis` $\times$ `glycemic_state_at_reading`
 | diabetes_diagnosis   |   elevated |   high |   normal |   very_high |   All |
 |:---------------------|-----------:|-------:|---------:|------------:|------:|
-| None                 |       1235 |     11 |      965 |           7 |  2218 |
-| Prediabetes          |        183 |      1 |       16 |           1 |   201 |
+| None                 |       1044 |      4 |      910 |           5 |  1963 |
+| Prediabetes          |        374 |      8 |       71 |           3 |   456 |
 | Type 1               |        280 |    748 |      273 |         588 |  1889 |
 | Type 2               |       6059 |   5815 |     5084 |        3499 | 20457 |
 | All                  |       7757 |   6575 |     6338 |        4095 | 24765 |
@@ -43,21 +43,21 @@
 | type2_normoglycemic       |    5084 |
 | type2_severe              |    3499 |
 | type1_uncontrolled        |    1336 |
-| undiagnosed_elevated      |    1235 |
-| healthy                   |     965 |
+| undiagnosed_elevated      |    1044 |
+| healthy                   |     910 |
+| prediabetes_elevated      |     374 |
 | type1_elevated            |     280 |
 | type1_normoglycemic       |     273 |
-| prediabetes_elevated      |     183 |
-| undiagnosed_high          |      18 |
-| prediabetes_normoglycemic |      16 |
-| prediabetes_high          |       2 |
+| prediabetes_normoglycemic |      71 |
+| prediabetes_high          |      11 |
+| undiagnosed_high          |       9 |
 
 > [!NOTE]
 > **Taxonomy Audit**:
 > 1. `diabetes_diagnosis` is invariant and reflects known medical diagnosis.
 > 2. `glycemic_state_at_reading` reflects the instantaneous measurement (<100: normal, 100-179: elevated, 180-249: high, >=250: very_high).
 > 3. Diagnosed Type 2 patients with a normal glucose reading are accurately classified as `type2_normoglycemic` (5,084 rows) rather than being conflated as `healthy`.
-> 4. The label `healthy` is strictly reserved for `diabetes_diagnosis == "None"` AND `glycemic_state_at_reading == "normal"` (965 rows).
+> 4. The label `healthy` is strictly reserved for `diabetes_diagnosis == "None"` AND `glycemic_state_at_reading == "normal"` (910 rows).
 
 ---
 
@@ -80,8 +80,8 @@
 
 - **Partitioning Method**: Stratified by `training_branch` and `diabetes_diagnosis` at the unique `participant_id` level.
 - **Data Leakage Guarantee**: **0 overlapping `participant_id` values** between train and test splits.
-- **Train Split (`train.csv`)**: **19,805** rows (16,792 unique participants).
-- **Test Split (`test.csv`)**: **4,960** rows (4,198 unique participants).
+- **Train Split (`train.csv`)**: **19,825** rows (16,792 unique participants).
+- **Test Split (`test.csv`)**: **4,940** rows (4,198 unique participants).
 
 ---
 
@@ -114,6 +114,13 @@
 | `family_history` | 0.0% | 100.0% | 0.0% | 87.3% |
 | `medication` | 0.0% | 0.0% | 0.0% | 0.0% |
 | `smoking` | 0.0% | 100.0% | 0.0% | 87.3% |
+| `race_ethnicity` | 0.0% | 0.0% | 100.0% | 2.5% |
+| `waist_circumference_cm` | 6.0% | 100.0% | 100.0% | 90.3% |
+| `physical_activity_level` | 0.0% | 0.0% | 100.0% | 2.5% |
+| `hypertension` | 0.2% | 100.0% | 100.0% | 89.8% |
+| `high_cholesterol` | 0.9% | 100.0% | 100.0% | 89.8% |
+| `hdl_cholesterol_mg_dl` | 5.8% | 100.0% | 100.0% | 89.9% |
+| `gestational_diabetes` | 0.0% | 53.7% | 100.0% | 47.9% |
 | `ppg_raw_dc_baseline` | 100.0% | 100.0% | 0.0% | 97.5% |
 | `ppg_raw_ac_p2p` | 100.0% | 100.0% | 0.0% | 97.5% |
 | `ppg_systolic_peak` | 100.0% | 100.0% | 0.0% | 97.5% |

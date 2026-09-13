@@ -426,15 +426,30 @@ def run_model_b_risk_classification():
     df_train["source"] = df_train["participant_id"].apply(lambda x: str(x).split("_")[0])
     df_test["source"] = df_test["participant_id"].apply(lambda x: str(x).split("_")[0])
 
-    # Pure demographic features (Excludes diag_*, med_*, bgl_*, and dataset shortcuts: fasting, bmi_cat_missing)
+    # Pure demographic & lifestyle risk features (Excludes diag_*, med_*, bgl_*, and dataset shortcuts: fasting, bmi_cat_missing)
+    # Grounded in ADA Diabetes Risk Test & FINDRISC clinical screening criteria
     risk_feature_cols = [
         "age_scaled",
         "bmi_scaled",
+        "waist_circumference_cm_scaled",
         "gender_male",
         "bmi_cat_underweight",
         "bmi_cat_normal",
         "bmi_cat_overweight",
         "bmi_cat_obese",
+        "race_white",
+        "race_black",
+        "race_hispanic",
+        "race_asian",
+        "race_other",
+        "phys_act_active",
+        "phys_act_moderate",
+        "phys_act_sedentary",
+        "hypertension",
+        "high_cholesterol",
+        "gdm_positive",
+        "gdm_negative",
+        "gdm_male_na",
         "family_history",
         "smoking"
     ]
@@ -794,8 +809,17 @@ def generate_comparison_report(results_a, best_name_a, risk_meta, ablation_resul
         f.write(f"**Task**: 3-Class Demographic Pre-Diagnostic Screening (`healthy_risk`, `elevated_risk`, `diabetic_risk`)  \n")
         f.write(f"**Validated Population Scope**: CDC NHANES Community Outpatient Cohort ($N_{{\\text{{train}}}}=2,029$, $N_{{\\text{{test}}}}=508$)  \n")
         f.write(f"**Clean Label Formulation**: `elevated_risk` strictly for diagnosed Prediabetes; `healthy_risk` for diagnosis None (zero feature overlap).  \n")
-        f.write(f"**Independent Features**: `age_scaled`, `bmi_scaled`, `gender_male`, `bmi_cat_*`, `family_history`, `smoking` (Strictly excludes diagnosis, medications, glucose targets, and dataset shortcut features).  \n")
-        f.write(f"**Production Macro AUROC**: **{risk_meta['macro_auroc']:.4f}**  \n\n")
+        f.write(f"**Expanded Clinically-Grounded Risk Features (ADA / FINDRISC)**: {len(risk_meta['feature_list'])} features including `age`, `bmi`, `waist_circumference_cm`, `gender_male`, `race_white`, `race_black`, `race_hispanic`, `race_asian`, `race_other`, `phys_act_active`, `phys_act_moderate`, `phys_act_sedentary`, `hypertension`, `high_cholesterol`, `gdm_positive`, `gdm_negative`, `gdm_male_na`, `family_history`, and `smoking`.  \n")
+        f.write(f"**Production Macro AUROC**: **{risk_meta['macro_auroc']:.4f}** (Prior 9-feature baseline: 0.7296)  \n\n")
+
+        rep_elevated = risk_meta["classification_report"]["elevated_risk"]
+        elev_auroc = risk_meta["per_class_auroc"]["elevated_risk"]
+        elev_prec = rep_elevated["precision"]
+        elev_ratio = int(round(1.0 / max(1e-4, elev_prec))) if elev_prec > 0 else 0
+
+        f.write(f"> [!IMPORTANT]\n")
+        f.write(f"> **Honest Clinical Screening Framing (`elevated_risk`)**:\n")
+        f.write(f"> `elevated_risk` AUROC reached **{elev_auroc:.4f}**, but precision remains low at **{elev_prec*100:.1f}%** (roughly 1 in {elev_ratio} flagged cases is truly prediabetic), meaning this output should be communicated to users as 'worth a follow-up test' rather than a reliable standalone diagnosis. Pure demographic biometrics cannot substitute for biochemical HbA1c or fasting laboratory testing.\n\n")
 
         f.write("| Risk Class | Test $N$ | AUROC (OvR) | Precision | Recall | F1-Score | Brier Calibration Score |\n")
         f.write("| :--- | :---: | :---: | :---: | :---: | :---: | :---: |\n")
@@ -805,10 +829,19 @@ def generate_comparison_report(results_a, best_name_a, risk_meta, ablation_resul
 
         f.write("\n```\nConfusion Matrix [Healthy, Elevated, Diabetic]:\n" + str(np.array(risk_meta["confusion_matrix"])) + "\n```\n\n")
 
+        f.write("> [!NOTE]\n")
+        f.write("> **Clinical Basis for Expanded Risk Factors (ADA Diabetes Risk Test & FINDRISC)**:\n")
+        f.write("> - **Waist Circumference (`waist_circumference_cm_scaled`)**: Core FINDRISC metric reflecting central/visceral adiposity, which correlates more directly with hepatic insulin resistance and metabolic dysfunction than BMI alone.\n")
+        f.write("> - **Physical Activity (`phys_act_*`)**: Direct ADA & FINDRISC factor; physical inactivity (<150 min/wk moderate-to-vigorous exercise) downregulates skeletal muscle GLUT4 glucose transporter expression and elevates T2D onset risk.\n")
+        f.write("> - **Hypertension (`hypertension`)**: Established metabolic syndrome component; vascular stiffness and microvascular rarefaction exacerbate peripheral insulin resistance.\n")
+        f.write("> - **High Cholesterol (`high_cholesterol`)**: Dyslipidemia (low HDL, high triglycerides) is pathobiologically linked to non-esterified fatty acid overload and beta-cell lipotoxicity.\n")
+        f.write("> - **Gestational Diabetes History (`gdm_*`)**: Prominent ADA screening indicator; women with a history of gestational diabetes exhibit a 7- to 10-fold higher lifetime risk of conversion to Type 2 diabetes. Men are assigned a distinct non-applicable category (`gdm_male_na`) rather than being incorrectly imputed.\n")
+        f.write("> - **Race/Ethnicity (`race_*`)**: Explicitly included in the American Diabetes Association (ADA) Risk Test as a recognized, empirical epidemiological risk factor. Certain populations (Asian American, African American, Hispanic/Latino, Native American) experience significantly higher rates of insulin resistance and Type 2 diabetes at substantially lower BMI cutoffs (e.g., Asian BMI screening threshold is 23 kg/m² vs 25 kg/m² for general populations). This feature is utilized transparently as an evidence-based population risk modifier, not as an unexplained categorical confounder.\n\n")
+
         reb = risk_meta.get("clinical_rebalancing_audit", {})
         rej = risk_meta.get("dataset_shortcut_rejection_audit", {})
         f.write("### Clinical Evaluation & Integrity Audits:\n")
-        f.write(f"1. **Prediabetes (`elevated_risk`) Screening Finding**: With class weighting, the model achieves **AUROC = {reb.get('elevated_risk_auroc', 0.5733):.4f}** and **Recall = {reb.get('elevated_risk_recall', 0.1818)*100:.1f}%** with **Precision = {reb.get('elevated_risk_precision', 0.0241)*100:.2f}%**. Distinguishing prediabetes from healthy adults using pure demographics yields low precision because prediabetic and normoglycemic individuals share heavily overlapping age/BMI distributions without biochemical fasting glucose or HbA1c testing.\n")
+        f.write(f"1. **Prediabetes (`elevated_risk`) Screening Finding & Honest Framing**: `elevated_risk` achieved **AUROC = {elev_auroc:.4f}**, but precision remains low at **{elev_prec*100:.1f}%** (roughly 1 in {elev_ratio} flagged cases is truly prediabetic), meaning this output should be communicated to users as 'worth a follow-up test' rather than a reliable standalone diagnosis. Distinguishing prediabetes from healthy adults using pure demographics yields low precision because prediabetic and normoglycemic individuals share heavily overlapping age/BMI distributions without biochemical fasting glucose or HbA1c testing.\n")
         f.write(f"2. **Rejection of Pooled 0.9825 Model**: The pooled model AUROC was rejected for production because demographic features (fasting survey indicator and inpatient missing BMI patterns) predict dataset origin (UCI 130 inpatient vs NHANES outpatient) with **AUROC = {rej.get('source_detector_auroc', 1.0):.4f}**, creating an artificial shortcut between 100% diabetic inpatient charts and outpatient surveys.\n")
         f.write(f"3. **Production Recommendation**: The scoped NHANES model (**Macro AUROC = {risk_meta['macro_auroc']:.4f}**, Diabetic AUROC = **{risk_meta['per_class_auroc']['diabetic_risk']:.4f}**, Healthy AUROC = **{risk_meta['per_class_auroc']['healthy_risk']:.4f}**) is established as the honest production baseline for outpatient screening.\n\n")
 

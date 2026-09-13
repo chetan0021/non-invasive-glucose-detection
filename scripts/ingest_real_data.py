@@ -63,6 +63,13 @@ CANONICAL_COLUMNS = [
     "family_history",
     "medication",
     "smoking",
+    "race_ethnicity",
+    "waist_circumference_cm",
+    "physical_activity_level",
+    "hypertension",
+    "high_cholesterol",
+    "hdl_cholesterol_mg_dl",
+    "gestational_diabetes",
     # MAX30102 Signal & Perfusion
     "ppg_raw_dc_baseline",
     "ppg_raw_ac_p2p",
@@ -165,23 +172,53 @@ def ingest_nhanes() -> Tuple[pd.DataFrame, int]:
     diq_path = nh_dir / "DIQ_J.XPT"
     bmx_path = nh_dir / "BMX_J.XPT"
     smq_path = nh_dir / "SMQ_J.XPT"
+    paq_path = nh_dir / "PAQ_J.XPT"
+    bpq_path = nh_dir / "BPQ_J.XPT"
+    rhq_path = nh_dir / "RHQ_J.XPT"
+    hdl_path = nh_dir / "HDL_J.XPT"
 
     demo_df = pd.read_sas(demo_path, format="xport")
     glu_df = pd.read_sas(glu_path, format="xport")
     diq_df = pd.read_sas(diq_path, format="xport")
     bmx_df = pd.read_sas(bmx_path, format="xport") if bmx_path.exists() else pd.DataFrame()
     smq_df = pd.read_sas(smq_path, format="xport") if smq_path.exists() else pd.DataFrame()
+    paq_df = pd.read_sas(paq_path, format="xport") if paq_path.exists() else pd.DataFrame()
+    bpq_df = pd.read_sas(bpq_path, format="xport") if bpq_path.exists() else pd.DataFrame()
+    rhq_df = pd.read_sas(rhq_path, format="xport") if rhq_path.exists() else pd.DataFrame()
+    hdl_df = pd.read_sas(hdl_path, format="xport") if hdl_path.exists() else pd.DataFrame()
 
     merged = glu_df.merge(demo_df, on="SEQN", how="inner")
     merged = merged.merge(diq_df, on="SEQN", how="left")
     if not bmx_df.empty:
-        merged = merged.merge(bmx_df[["SEQN", "BMXBMI"]], on="SEQN", how="left")
+        bmx_cols = [c for c in ["SEQN", "BMXBMI", "BMXWAIST"] if c in bmx_df.columns]
+        merged = merged.merge(bmx_df[bmx_cols], on="SEQN", how="left")
     if not smq_df.empty and "SMQ020" in smq_df.columns:
         merged = merged.merge(smq_df[["SEQN", "SMQ020"]], on="SEQN", how="left")
+    if not paq_df.empty:
+        paq_cols = [c for c in ["SEQN", "PAQ605", "PAQ620", "PAQ650", "PAQ665", "PAD680"] if c in paq_df.columns]
+        merged = merged.merge(paq_df[paq_cols], on="SEQN", how="left")
+    if not bpq_df.empty:
+        bpq_cols = [c for c in ["SEQN", "BPQ020", "BPQ080"] if c in bpq_df.columns]
+        merged = merged.merge(bpq_df[bpq_cols], on="SEQN", how="left")
+    if not rhq_df.empty:
+        rhq_cols = [c for c in ["SEQN", "RHQ162", "RHQ131"] if c in rhq_df.columns]
+        merged = merged.merge(rhq_df[rhq_cols], on="SEQN", how="left")
+    if not hdl_df.empty:
+        hdl_cols = [c for c in ["SEQN", "LBDHDD"] if c in hdl_df.columns]
+        merged = merged.merge(hdl_df[hdl_cols], on="SEQN", how="left")
 
     total_before = len(merged)
     merged_adults = merged[merged["RIDAGEYR"] >= 18.0].copy()
     pediatric_removed = total_before - len(merged_adults)
+
+    race_map = {
+        1.0: "mexican_american",
+        2.0: "other_hispanic",
+        3.0: "non_hispanic_white",
+        4.0: "non_hispanic_black",
+        6.0: "non_hispanic_asian",
+        7.0: "other_multiracial"
+    }
 
     records = []
     for _, row in merged_adults.iterrows():
@@ -196,10 +233,12 @@ def ingest_nhanes() -> Tuple[pd.DataFrame, int]:
 
         # Non-Conflated Diagnosis Extraction:
         # DIQ010: 1=Doctor diagnosed diabetes, 2=No, 3=Borderline/prediabetes
+        # DIQ160: 1=Doctor told you have prediabetes (Used ONLY for diagnosis definition, never in feature set)
         diq010 = row.get("DIQ010")
+        diq160 = row.get("DIQ160")
         if diq010 == 1.0:
             diagnosis = "Type 2"
-        elif diq010 == 3.0:
+        elif diq010 == 3.0 or diq160 == 1.0:
             diagnosis = "Prediabetes"
         else:
             diagnosis = "None"
@@ -223,6 +262,49 @@ def ingest_nhanes() -> Tuple[pd.DataFrame, int]:
         fam_hist = 1 if row.get("DIQ175A") == 10.0 else 0
         smq = row.get("SMQ020")
         smoking = 1 if smq == 1.0 else (0 if smq == 2.0 else np.nan)
+
+        # Expanded Clinically-Validated Risk Factors (ADA / FINDRISC Grounding)
+        race_eth = race_map.get(row.get("RIDRETH3"), "unknown")
+        waist_cm = float(row["BMXWAIST"]) if "BMXWAIST" in row and pd.notna(row["BMXWAIST"]) else np.nan
+
+        # Physical Activity Level
+        pa605 = row.get("PAQ605")
+        pa650 = row.get("PAQ650")
+        pa620 = row.get("PAQ620")
+        pa665 = row.get("PAQ665")
+        if pa605 == 1.0 or pa650 == 1.0:
+            phys_act = "active"
+        elif pa620 == 1.0 or pa665 == 1.0:
+            phys_act = "moderate"
+        elif any(v == 2.0 for v in [pa605, pa620, pa650, pa665]):
+            phys_act = "sedentary"
+        else:
+            phys_act = "unknown"
+
+        # Hypertension & High Cholesterol
+        htn_code = row.get("BPQ020")
+        hypertension = 1 if htn_code == 1.0 else (0 if htn_code == 2.0 else np.nan)
+
+        chol_code = row.get("BPQ080")
+        high_chol = 1 if chol_code == 1.0 else (0 if chol_code == 2.0 else np.nan)
+
+        # HDL Cholesterol (mg/dL)
+        hdl_val = float(row["LBDHDD"]) if "LBDHDD" in row and pd.notna(row["LBDHDD"]) else np.nan
+
+        # Gestational Diabetes History (Women only, NA for men)
+        # Sourced strictly from RHQ162 ("During pregnancy, told you have diabetes") and RHQ131 ("Ever been pregnant?")
+        # DIQ160 ("Ever told you have prediabetes") is EXCLUDED to prevent label leakage into features.
+        if gender_code == 1.0:
+            gdm = "not_applicable"
+        else:
+            r162 = row.get("RHQ162")
+            r131 = row.get("RHQ131")
+            if r162 in [1.0, 3.0]:
+                gdm = "yes"
+            elif r162 == 2.0 or r131 == 2.0:
+                gdm = "no"
+            else:
+                gdm = "unknown"
 
         usable = pd.notna(bgl) and (bgl > 30.0)
 
@@ -253,6 +335,13 @@ def ingest_nhanes() -> Tuple[pd.DataFrame, int]:
             "family_history": fam_hist,
             "medication": med,
             "smoking": smoking,
+            "race_ethnicity": race_eth,
+            "waist_circumference_cm": waist_cm,
+            "physical_activity_level": phys_act,
+            "hypertension": hypertension,
+            "high_cholesterol": high_chol,
+            "hdl_cholesterol_mg_dl": hdl_val,
+            "gestational_diabetes": gdm,
             "ppg_raw_dc_baseline": np.nan,
             "ppg_raw_ac_p2p": np.nan,
             "ppg_systolic_peak": np.nan,
@@ -418,6 +507,13 @@ def ingest_diabetes130() -> Tuple[pd.DataFrame, int]:
             "family_history": np.nan,
             "medication": med_str,
             "smoking": np.nan,
+            "race_ethnicity": "non_hispanic_white" if "caucasian" in str(row.get("race", "")).lower() else ("non_hispanic_black" if "african" in str(row.get("race", "")).lower() else ("other_hispanic" if "hispanic" in str(row.get("race", "")).lower() else ("non_hispanic_asian" if "asian" in str(row.get("race", "")).lower() else "unknown"))),
+            "waist_circumference_cm": np.nan,
+            "physical_activity_level": "unknown",
+            "hypertension": np.nan,
+            "high_cholesterol": np.nan,
+            "hdl_cholesterol_mg_dl": np.nan,
+            "gestational_diabetes": "not_applicable" if gender == "M" else np.nan,
             "ppg_raw_dc_baseline": np.nan,
             "ppg_raw_ac_p2p": np.nan,
             "ppg_systolic_peak": np.nan,

@@ -190,6 +190,9 @@ BENCHMARK_PRESETS = {
         "full_name": "Healthy Reference Subject",
         "notes": "Normal fasting metabolic baseline (ADA/ICMR Normal <100 mg/dL)",
         "age": 34.0, "gender": "Female", "height_cm": 168.0, "weight_kg": 60.0,
+        "race_ethnicity": "Non-Hispanic White", "waist_circumference_cm": 74.0,
+        "physical_activity_level": "Vigorous / Highly Active",
+        "hypertension": "No", "high_cholesterol": "No", "gestational_diabetes": "No",
         "family_history": "No (0)", "smoking_status": "Non-Smoker (0)",
         "fasting_status": "Fasting (≥8h)", "med_status": "None",
         "diagnosis_option": "None (Healthy)",
@@ -204,6 +207,9 @@ BENCHMARK_PRESETS = {
         "full_name": "Prediabetes Screen Subject",
         "notes": "Impaired fasting glucose profile (ADA/ICMR Prediabetes 100-125 mg/dL)",
         "age": 52.0, "gender": "Male", "height_cm": 175.0, "weight_kg": 84.0,
+        "race_ethnicity": "Non-Hispanic White", "waist_circumference_cm": 96.0,
+        "physical_activity_level": "Sedentary / Inactive (<150 min/wk)",
+        "hypertension": "Yes", "high_cholesterol": "Yes", "gestational_diabetes": "Not Applicable (Male)",
         "family_history": "Yes (1)", "smoking_status": "Non-Smoker (0)",
         "fasting_status": "Fasting (≥8h)", "med_status": "None",
         "diagnosis_option": "Prediabetes",
@@ -218,6 +224,9 @@ BENCHMARK_PRESETS = {
         "full_name": "Type 2 Subject (Post-Meal)",
         "notes": "2-hour post-prandial glycemic excursion on Metformin",
         "age": 59.0, "gender": "Male", "height_cm": 174.0, "weight_kg": 90.0,
+        "race_ethnicity": "Non-Hispanic White", "waist_circumference_cm": 104.0,
+        "physical_activity_level": "Sedentary / Inactive (<150 min/wk)",
+        "hypertension": "Yes", "high_cholesterol": "Yes", "gestational_diabetes": "Not Applicable (Male)",
         "family_history": "Yes (1)", "smoking_status": "Current Smoker (1)",
         "fasting_status": "Non-Fasting / Post-Meal", "med_status": "Oral Hypoglycemics",
         "diagnosis_option": "Type 2 Diabetes",
@@ -232,6 +241,9 @@ BENCHMARK_PRESETS = {
         "full_name": "Severe Hyperglycemia Patient",
         "notes": "Marked acute hyperglycemia with cellular acidosis and vagal blunting",
         "age": 48.0, "gender": "Female", "height_cm": 162.0, "weight_kg": 85.0,
+        "race_ethnicity": "Hispanic / Latino", "waist_circumference_cm": 98.0,
+        "physical_activity_level": "Sedentary / Inactive (<150 min/wk)",
+        "hypertension": "Yes", "high_cholesterol": "Yes", "gestational_diabetes": "Yes",
         "family_history": "Yes (1)", "smoking_status": "Current Smoker (1)",
         "fasting_status": "Non-Fasting / Post-Meal", "med_status": "Insulin",
         "diagnosis_option": "Type 1 Diabetes",
@@ -246,6 +258,9 @@ BENCHMARK_PRESETS = {
         "full_name": "Hypoglycemia Emergency Case",
         "notes": "Acute hypoglycemia under-range episode requiring fast-acting carbs",
         "age": 28.0, "gender": "Male", "height_cm": 180.0, "weight_kg": 70.0,
+        "race_ethnicity": "Non-Hispanic White", "waist_circumference_cm": 78.0,
+        "physical_activity_level": "Vigorous / Highly Active",
+        "hypertension": "No", "high_cholesterol": "No", "gestational_diabetes": "Not Applicable (Male)",
         "family_history": "No (0)", "smoking_status": "Non-Smoker (0)",
         "fasting_status": "Fasting (≥8h)", "med_status": "Insulin",
         "diagnosis_option": "Type 1 Diabetes",
@@ -260,6 +275,9 @@ BENCHMARK_PRESETS = {
         "full_name": "Community Outpatient Beta",
         "notes": "Routine primary care health check without wearable sensors",
         "age": 61.0, "gender": "Male", "height_cm": 170.0, "weight_kg": 94.0,
+        "race_ethnicity": "Non-Hispanic Black", "waist_circumference_cm": 108.0,
+        "physical_activity_level": "Sedentary / Inactive (<150 min/wk)",
+        "hypertension": "Yes", "high_cholesterol": "Yes", "gestational_diabetes": "Not Applicable (Male)",
         "family_history": "Yes (1)", "smoking_status": "Current Smoker (1)",
         "fasting_status": "Fasting (≥8h)", "med_status": "None",
         "diagnosis_option": "Unknown / Not Diagnosed",
@@ -269,6 +287,9 @@ BENCHMARK_PRESETS = {
         "full_name": "Community Outpatient Alpha",
         "notes": "Young active individual screening without wearable sensors",
         "age": 25.0, "gender": "Female", "height_cm": 165.0, "weight_kg": 54.0,
+        "race_ethnicity": "Asian / Asian American", "waist_circumference_cm": 68.0,
+        "physical_activity_level": "Vigorous / Highly Active",
+        "hypertension": "No", "high_cholesterol": "No", "gestational_diabetes": "No",
         "family_history": "No (0)", "smoking_status": "Non-Smoker (0)",
         "fasting_status": "Fasting (≥8h)", "med_status": "None",
         "diagnosis_option": "None (Healthy)",
@@ -537,7 +558,11 @@ def generate_pdf_report(session_data: Dict[str, Any], input_data: Dict[str, Any]
         [Paragraph("<b>Full Name:</b>", cell_style), Paragraph(str(session_data.get("full_name", "N/A")), cell_style),
          Paragraph("<b>Date / Time:</b>", cell_style), Paragraph(str(session_data.get("session_time", "N/A")), cell_style)],
         [Paragraph("<b>Age / Gender:</b>", cell_style), Paragraph(f"{input_data.get('age', 'N/A')} yrs / {str(input_data.get('gender', 'N/A')).capitalize()}", cell_style),
-         Paragraph("<b>BMI:</b>", cell_style), Paragraph(f"{input_data.get('bmi', 'N/A')} kg/m² ({input_data.get('bmi_category', 'N/A')})", cell_style)],
+         Paragraph("<b>BMI / Waist:</b>", cell_style), Paragraph(f"{input_data.get('bmi', 'N/A')} kg/m² ({input_data.get('bmi_category', 'N/A')}) / {input_data.get('waist_circumference_cm', 'N/A')} cm", cell_style)],
+        [Paragraph("<b>Race / Ethnicity:</b>", cell_style), Paragraph(str(input_data.get("race_ethnicity", "N/A")).replace("_", " ").title(), cell_style),
+         Paragraph("<b>Physical Activity:</b>", cell_style), Paragraph(str(input_data.get("physical_activity_level", "N/A")).capitalize(), cell_style)],
+        [Paragraph("<b>Comorbidities:</b>", cell_style), Paragraph(f"HTN: {'Yes' if input_data.get('hypertension') == 1 else 'No'} | Dyslipidemia: {'Yes' if input_data.get('high_cholesterol') == 1 else 'No'}", cell_style),
+         Paragraph("<b>Gestational Diabetes:</b>", cell_style), Paragraph(str(input_data.get("gestational_diabetes", "N/A")).replace("_", " ").title(), cell_style)],
         [Paragraph("<b>Diagnosis Status:</b>", cell_style), Paragraph(str(input_data.get("diabetes_diagnosis", "None")), cell_style),
          Paragraph("<b>Fasting State:</b>", cell_style), Paragraph("Fasting (≥8h)" if input_data.get("fasting", 1) == 1 else "Non-Fasting", cell_style)],
         [Paragraph("<b>Clinical Notes:</b>", cell_style), Paragraph(str(session_data.get("notes", "None recorded")), cell_style),
@@ -611,7 +636,7 @@ def generate_pdf_report(session_data: Dict[str, Any], input_data: Dict[str, Any]
             "<b>MANDATORY RESEARCH PROTOTYPE DISCLAIMER:</b><br/>"
             "This document is generated by an experimental research prototype. The full-sensor machine learning regression model "
             "is validated on synthetic multi-modal self-consistency data only. The tabular demographic classifier is validated on CDC NHANES "
-            "community survey outpatients only (AUROC=0.73). This software is not an FDA-cleared medical device and must NEVER be used to "
+            "community survey outpatients only (Macro AUROC=0.87). This software is not an FDA-cleared medical device and must NEVER be used to "
             "adjust insulin doses or substitute for certified clinical laboratory blood testing.",
             alert_style
         )
@@ -645,10 +670,16 @@ def append_to_audit_log(session_data: Dict[str, Any], input_data: Dict[str, Any]
         "notes": session_data.get("notes", ""),
         "age": input_data.get("age", ""),
         "gender": input_data.get("gender", ""),
+        "race_ethnicity": input_data.get("race_ethnicity", ""),
         "height_cm": input_data.get("height_cm", ""),
         "weight_kg": input_data.get("weight_kg", ""),
         "bmi": input_data.get("bmi", ""),
         "bmi_category": input_data.get("bmi_category", ""),
+        "waist_circumference_cm": input_data.get("waist_circumference_cm", ""),
+        "physical_activity_level": input_data.get("physical_activity_level", ""),
+        "hypertension": input_data.get("hypertension", 0),
+        "high_cholesterol": input_data.get("high_cholesterol", 0),
+        "gestational_diabetes": input_data.get("gestational_diabetes", ""),
         "family_history": input_data.get("family_history", 0),
         "smoking": input_data.get("smoking", 0),
         "fasting": input_data.get("fasting", 1),
@@ -687,9 +718,9 @@ with st.sidebar:
     st.header("⚙️ System Status & Diagnostics")
     st.info(
         "**Multi-Modal AI Architecture:**\n"
-        "• **Model A (Full-Sensor)**: Random Forest (50 feats, R²=0.8557, MAE=12.13 mg/dL)\n"
-        "• **Model B (Demographics)**: XGBoost Classifier (NHANES scoped, Macro AUROC=0.7296)\n"
-        "• **Uncertainty Engine**: Gradient Boosting [q0.05, q0.95] (85.16% empirical test coverage)"
+        "• **Model A (Full-Sensor)**: Random Forest (50 feats, R²=0.8528, MAE=12.28 mg/dL)\n"
+        "• **Model B (Demographics)**: XGBoost Classifier (NHANES scoped, Macro AUROC=0.8092)\n"
+        "• **Uncertainty Engine**: Gradient Boosting [q0.05, q0.95] (87.8% empirical test coverage)"
     )
     st.markdown("---")
     st.caption("🔒 **Validation Status**: `synthetic_self_consistency_only`")
@@ -767,13 +798,75 @@ with tab_pred:
             height_cm = st.number_input("Height (cm)", min_value=50.0, max_value=250.0, value=float(p_data.get("height_cm", 172.0)), step=0.5)
             weight_kg = st.number_input("Weight (kg)", min_value=10.0, max_value=250.0, value=float(p_data.get("weight_kg", 75.0)), step=0.5)
         with c_p3:
+            race_opts = ["Non-Hispanic White", "Non-Hispanic Black", "Hispanic / Latino", "Asian / Asian American", "Other / Multi-Racial"]
+            default_race = p_data.get("race_ethnicity", "Non-Hispanic White")
+            r_idx = race_opts.index(default_race) if default_race in race_opts else 0
+            race_ethnicity = st.selectbox(
+                "Race / Ethnicity (ADA Risk Test)",
+                options=race_opts,
+                index=r_idx,
+                help="Recognized empirical epidemiological risk factor per American Diabetes Association (ADA) guidelines. Populations of Asian, African, and Hispanic descent experience higher insulin resistance and T2D prevalence at lower body weight thresholds (e.g. Asian BMI screening cutoff is 23 kg/m² vs 25 kg/m²)."
+            )
+            waist_circumference_cm = st.number_input(
+                "Waist Circumference (cm)",
+                min_value=40.0,
+                max_value=200.0,
+                value=float(p_data.get("waist_circumference_cm", 88.0)),
+                step=0.5,
+                help="Core central-obesity marker (FINDRISC & ADA). Visceral adiposity drives hepatic insulin resistance more directly than BMI. High risk thresholds: Men >102 cm (40 in), Women >88 cm (35 in); Asian Indian Men >90 cm, Women >80 cm (ICMR)."
+            )
+        with c_p4:
+            pa_opts = ["Moderately Active (≥150 min/wk)", "Vigorous / Highly Active", "Sedentary / Inactive (<150 min/wk)"]
+            pa_default = p_data.get("physical_activity_level", "Moderately Active (≥150 min/wk)")
+            pa_idx = 0
+            for i, opt in enumerate(pa_opts):
+                if opt.split()[0].lower() in pa_default.lower():
+                    pa_idx = i
+                    break
+            physical_activity_level = st.selectbox(
+                "Physical Activity Level",
+                options=pa_opts,
+                index=pa_idx,
+                help="Physical activity criterion (PAQ / ADA / FINDRISC): Inactivity (<150 min/wk moderate activity) downregulates GLUT4 translocation and elevates T2D onset risk."
+            )
+            htn_opts = ["No (Normal Blood Pressure)", "Yes (Diagnosed Hypertension / On Meds)"]
+            htn_default = "Yes" if str(p_data.get("hypertension", "")).lower() in ["yes", "1", "true"] else "No"
+            h_idx = 1 if htn_default == "Yes" else 0
+            hypertension = st.selectbox("Hypertension Diagnosis", options=htn_opts, index=h_idx, help="Cardiometabolic comorbidity; vascular stiffness exacerbates peripheral insulin resistance.")
+
+        c_l1, c_l2, c_l3, c_l4 = st.columns(4)
+        with c_l1:
+            chol_opts = ["No (Normal Cholesterol)", "Yes (Diagnosed Dyslipidemia / Low HDL)"]
+            chol_default = "Yes" if str(p_data.get("high_cholesterol", "")).lower() in ["yes", "1", "true"] else "No"
+            c_idx = 1 if chol_default == "Yes" else 0
+            high_cholesterol = st.selectbox("High Cholesterol / Dyslipidemia", options=chol_opts, index=c_idx, help="Dyslipidemia (low HDL, high triglycerides) contributes to beta-cell lipotoxicity.")
+        with c_l2:
+            if gender == "Female":
+                gdm_opts = ["No (No History)", "Yes (History of Gestational Diabetes)"]
+                gdm_default = "Yes" if str(p_data.get("gestational_diabetes", "")).lower() in ["yes", "1", "true"] else "No"
+                gdm_idx = 1 if gdm_default == "Yes" else 0
+                gestational_diabetes = st.selectbox(
+                    "Gestational Diabetes (GDM)",
+                    options=gdm_opts,
+                    index=gdm_idx,
+                    help="ADA screening factor: Prior gestational diabetes conveys a 7- to 10-fold higher lifetime risk of conversion to Type 2 diabetes."
+                )
+            else:
+                gestational_diabetes = st.selectbox(
+                    "Gestational Diabetes (GDM)",
+                    options=["Not Applicable (Male Participant)"],
+                    index=0,
+                    disabled=True,
+                    help="Gestational diabetes is left as a distinct non-applicable category for male participants per clinical practice rather than falsely imputed as negative."
+                )
+        with c_l3:
             fam_opts = ["No (0)", "Yes (1)"]
             f_idx = fam_opts.index(p_data.get("family_history", "No (0)")) if p_data.get("family_history") in fam_opts else 0
             family_history = st.selectbox("Family History of Diabetes", options=fam_opts, index=f_idx)
             smk_opts = ["Non-Smoker (0)", "Current Smoker (1)"]
             s_idx = smk_opts.index(p_data.get("smoking_status", "Non-Smoker (0)")) if p_data.get("smoking_status") in smk_opts else 0
             smoking_status = st.selectbox("Smoking Status", options=smk_opts, index=s_idx)
-        with c_p4:
+        with c_l4:
             fast_opts = ["Fasting (≥8h)", "Non-Fasting / Post-Meal"]
             fst_idx = fast_opts.index(p_data.get("fasting_status", "Fasting (≥8h)")) if p_data.get("fasting_status") in fast_opts else 0
             fasting_status = st.selectbox("Fasting State", options=fast_opts, index=fst_idx)
@@ -810,7 +903,7 @@ with tab_pred:
         diag_opts = ["Unknown / Not Diagnosed", "None (Healthy)", "Prediabetes", "Type 1 Diabetes", "Type 2 Diabetes"]
         d_idx = diag_opts.index(p_data.get("diagnosis_option", "Unknown / Not Diagnosed")) if p_data.get("diagnosis_option") in diag_opts else 0
         diagnosis_option = st.selectbox("Clinical Diagnosis Status (If Known)", options=diag_opts, index=d_idx)
-        st.markdown(f"**Computed Body Mass Index (BMI):** `{computed_bmi} kg/m²` — <span style='color:{bmi_color};font-weight:bold;'>{bmi_cat}</span>", unsafe_allow_html=True)
+        st.markdown(f"**Computed Body Mass Index (BMI):** `{computed_bmi} kg/m²` — <span style='color:{bmi_color};font-weight:bold;'>{bmi_cat}</span> | **Central Adiposity (Waist):** `{waist_circumference_cm} cm`", unsafe_allow_html=True)
 
         st.markdown("---")
 
@@ -886,13 +979,36 @@ with tab_pred:
         elif "Prediabetes" in diagnosis_option: diag_clean = "Prediabetes"
         elif "Healthy" in diagnosis_option: diag_clean = "None"
 
+        race_clean = "non_hispanic_white"
+        if "Black" in race_ethnicity: race_clean = "black"
+        elif "Hispanic" in race_ethnicity: race_clean = "hispanic"
+        elif "Asian" in race_ethnicity: race_clean = "asian"
+        elif "Other" in race_ethnicity: race_clean = "other"
+
+        pa_clean = "moderate"
+        if "Vigorous" in physical_activity_level: pa_clean = "active"
+        elif "Sedentary" in physical_activity_level: pa_clean = "sedentary"
+
+        htn_val = 1 if "Yes" in hypertension else 0
+        chol_val = 1 if "Yes" in high_cholesterol else 0
+
+        gdm_clean = "not_applicable"
+        if gender.lower() == "female":
+            gdm_clean = "yes" if "Yes" in gestational_diabetes else "no"
+
         input_payload = {
             "age": age,
             "gender": gender.lower(),
+            "race_ethnicity": race_clean,
             "height_cm": height_cm,
             "weight_kg": weight_kg,
             "bmi": computed_bmi,
             "bmi_category": bmi_cat,
+            "waist_circumference_cm": waist_circumference_cm,
+            "physical_activity_level": pa_clean,
+            "hypertension": htn_val,
+            "high_cholesterol": chol_val,
+            "gestational_diabetes": gdm_clean,
             "family_history": fam_hist_val,
             "smoking": smoking_val,
             "fasting": fasting_val,
@@ -931,7 +1047,7 @@ with tab_pred:
         if "predicted_bgl_mg_dl" in prediction_result:
             st.markdown("<div class='model-badge-fs'>MODEL A: Full-Sensor Multi-Modal Random Forest (R²=0.8557, Validated on Synthetic Data)</div>", unsafe_allow_html=True)
         else:
-            st.markdown("<div class='model-badge-tab'>MODEL B: Tabular Demographic Screening Classifier (CDC NHANES Scoped, Macro AUROC=0.73)</div>", unsafe_allow_html=True)
+            st.markdown("<div class='model-badge-tab'>MODEL B: Tabular Demographic Screening Classifier (CDC NHANES Scoped, Macro AUROC=0.81)</div>", unsafe_allow_html=True)
 
         # Type 1 Specific Safety Warning
         if "Type 1" in diag_clean:

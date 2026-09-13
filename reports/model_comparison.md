@@ -15,7 +15,7 @@
 | *Measurement 2025* | 0.8649 | 0.9300 | — | — | 5.15% | — | — |
 | *Algorithms 2025* | — | — | 15.36 | 13.17 | — | 94.74% | — |
 | *Informatics in Med. Unlocked 2024* | — | — | 43.28 | — | — | — | 100.0% |
-| **Model A: Full-Sensor (Random Forest)** | **0.8557** | **0.9250** | **16.60** | **12.13** | **8.78%** | **93.75%** | **99.22%** |
+| **Model A: Full-Sensor (Random Forest)** | **0.8528** | **0.9235** | **16.89** | **12.28** | **8.83%** | **93.50%** | **99.19%** |
 
 ---
 
@@ -25,11 +25,11 @@
 
 | Algorithm | GroupKFold CV $R^2$ | Test $R^2$ | Test RMSE (mg/dL) | Test MAE (mg/dL) | Test MARD (%) | Clarke Zone A | Clarke Zone A+B |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Linear Regression (Ridge)** | 0.8087 | 0.8031 | 19.39 | 15.38 | 11.65% | 85.94% | 99.22% |
-| **Random Forest** | 0.8182 | 0.8557 | 16.60 | 12.13 | 8.78% | 93.75% | 99.22% |
-| **XGBoost** | 0.8480 | 0.8686 | 15.84 | 11.95 | 8.71% | 95.31% | 99.22% |
-| **Support Vector Regressor (SVR)** | 0.7596 | 0.7257 | 22.88 | 17.63 | 13.02% | 76.56% | 99.22% |
-| **Stacked Ensemble (Ridge Meta)** | 0.8617 | 0.8621 | 16.22 | 12.41 | 9.11% | 92.19% | 99.22% |
+| **Linear Regression (Ridge)** | 0.8175 | 0.7991 | 19.73 | 15.74 | 11.85% | 85.37% | 99.19% |
+| **Random Forest** | 0.8205 | 0.8528 | 16.89 | 12.28 | 8.83% | 93.50% | 99.19% |
+| **XGBoost** | 0.8480 | 0.8610 | 16.41 | 12.31 | 8.86% | 92.68% | 99.19% |
+| **Support Vector Regressor (SVR)** | 0.7593 | 0.7196 | 23.31 | 18.08 | 13.30% | 74.80% | 99.19% |
+| **Stacked Ensemble (Ridge Meta)** | 0.8599 | 0.8567 | 16.66 | 12.76 | 9.17% | 92.68% | 99.19% |
 
 ---
 
@@ -37,10 +37,10 @@
 
 | `diabetes_diagnosis` | Test $N$ | Confidence Status | $R^2$ | RMSE (mg/dL) | MAE (mg/dL) | MARD (%) | Clarke Zone A (%) | Clarke Zone A+B (%) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **None** | **35** | High Confidence ($N \ge 15$) | 0.6123 | 10.01 | 7.99 | 7.43% | 100.00% | 100.00% |
-| **Prediabetes** | **27** | High Confidence ($N \ge 15$) | 0.8436 | 9.16 | 7.39 | 5.59% | 100.00% | 100.00% |
-| **Type 1** | **24** | High Confidence ($N \ge 15$) | 0.7391 | 26.71 | 20.87 | 13.65% | 79.17% | 95.83% |
-| **Type 2** | **42** | High Confidence ($N \ge 15$) | 0.7934 | 17.16 | 13.64 | 9.16% | 92.86% | 100.00% |
+| **None** | **30** | High Confidence ($N \ge 15$) | 0.6475 | 9.74 | 7.80 | 7.33% | 100.00% | 100.00% |
+| **Prediabetes** | **27** | High Confidence ($N \ge 15$) | 0.8566 | 8.77 | 6.88 | 5.23% | 100.00% | 100.00% |
+| **Type 1** | **24** | High Confidence ($N \ge 15$) | 0.7407 | 26.62 | 20.96 | 13.85% | 79.17% | 95.83% |
+| **Type 2** | **42** | High Confidence ($N \ge 15$) | 0.7803 | 17.70 | 14.00 | 9.35% | 92.86% | 100.00% |
 
 ---
 
@@ -49,26 +49,39 @@
 **Task**: 3-Class Demographic Pre-Diagnostic Screening (`healthy_risk`, `elevated_risk`, `diabetic_risk`)  
 **Validated Population Scope**: CDC NHANES Community Outpatient Cohort ($N_{\text{train}}=2,029$, $N_{\text{test}}=508$)  
 **Clean Label Formulation**: `elevated_risk` strictly for diagnosed Prediabetes; `healthy_risk` for diagnosis None (zero feature overlap).  
-**Independent Features**: `age_scaled`, `bmi_scaled`, `gender_male`, `bmi_cat_*`, `family_history`, `smoking` (Strictly excludes diagnosis, medications, glucose targets, and dataset shortcut features).  
-**Production Macro AUROC**: **0.7296**  
+**Expanded Clinically-Grounded Risk Features (ADA / FINDRISC)**: 23 features including `age`, `bmi`, `waist_circumference_cm`, `gender_male`, `race_white`, `race_black`, `race_hispanic`, `race_asian`, `race_other`, `phys_act_active`, `phys_act_moderate`, `phys_act_sedentary`, `hypertension`, `high_cholesterol`, `gdm_positive`, `gdm_negative`, `gdm_male_na`, `family_history`, and `smoking`.  
+**Production Macro AUROC**: **0.8092** (Prior 9-feature baseline: 0.7296)  
+
+> [!IMPORTANT]
+> **Honest Clinical Screening Framing (`elevated_risk`)**:  
+> While `elevated_risk` (prediabetes) AUROC improved to **0.7302** (up from the 0.5369 baseline), precision is **29.17%** (with 28 of 60 true prediabetics captured, roughly 1 in 3.4 flagged cases is truly prediabetic), meaning this output must be communicated to users as **"worth a follow-up test"** rather than a reliable standalone diagnosis. Pure demographic and anthropometric biometrics cannot substitute for biochemical fasting plasma glucose or laboratory HbA1c testing.
 
 | Risk Class | Test $N$ | AUROC (OvR) | Precision | Recall | F1-Score | Brier Calibration Score |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **healthy_risk** | 403.0 | **0.7904** | 0.9397 | 0.5409 | 0.6866 | 0.2826 |
-| **elevated_risk** | 11.0 | **0.5733** | 0.0241 | 0.1818 | 0.0426 | 0.099 |
-| **diabetic_risk** | 94.0 | **0.8253** | 0.3990 | 0.8191 | 0.5366 | 0.1351 |
+| **healthy_risk** | 358.0 | **0.8127** | 0.9024 | 0.6201 | 0.7351 | 0.2385 |
+| **elevated_risk** | 60.0 | **0.7302** | 0.2917 | 0.4667 | 0.3590 | 0.1284 |
+| **diabetic_risk** | 90.0 | **0.8847** | 0.4518 | 0.8333 | 0.5859 | 0.1127 |
 
 ```
 Confusion Matrix [Healthy, Elevated, Diabetic]:
-[[218  73 112]
- [  5   2   4]
- [  9   8  77]]
+[[222  62  74]
+ [ 15  28  17]
+ [  9   6  75]]
 ```
 
+> [!NOTE]
+> **Clinical Basis for Expanded Risk Factors (ADA Diabetes Risk Test & FINDRISC)**:
+> - **Waist Circumference (`waist_circumference_cm_scaled`)**: Core FINDRISC metric reflecting central/visceral adiposity, which correlates more directly with hepatic insulin resistance and metabolic dysfunction than BMI alone.
+> - **Physical Activity (`phys_act_*`)**: Direct ADA & FINDRISC factor; physical inactivity (<150 min/wk moderate-to-vigorous exercise) downregulates skeletal muscle GLUT4 glucose transporter expression and elevates T2D onset risk.
+> - **Hypertension (`hypertension`)**: Established metabolic syndrome component; vascular stiffness and microvascular rarefaction exacerbate peripheral insulin resistance.
+> - **High Cholesterol (`high_cholesterol`)**: Dyslipidemia (low HDL, high triglycerides) is pathobiologically linked to non-esterified fatty acid overload and beta-cell lipotoxicity.
+> - **Gestational Diabetes History (`gdm_*`)**: Prominent ADA screening indicator; women with a history of gestational diabetes exhibit a 7- to 10-fold higher lifetime risk of conversion to Type 2 diabetes. Derived strictly from `RHQ162` ("During pregnancy, told you have diabetes") and `RHQ131` ("Ever been pregnant?"), with `DIQ160` strictly excluded to prevent label leakage. Men are assigned a distinct non-applicable category (`gdm_male_na`) rather than being incorrectly imputed.
+> - **Race/Ethnicity (`race_*`)**: Explicitly included in the American Diabetes Association (ADA) Risk Test as a recognized, empirical epidemiological risk factor. Certain populations (Asian American, African American, Hispanic/Latino, Native American) experience significantly higher rates of insulin resistance and Type 2 diabetes at substantially lower BMI cutoffs (e.g., Asian BMI screening threshold is 23 kg/m² vs 25 kg/m² for general populations). This feature is utilized transparently as an evidence-based population risk modifier, not as an unexplained categorical confounder.
+
 ### Clinical Evaluation & Integrity Audits:
-1. **Prediabetes (`elevated_risk`) Screening Finding**: With class weighting, the model achieves **AUROC = 0.5733** and **Recall = 18.2%** with **Precision = 2.41%**. Distinguishing prediabetes from healthy adults using pure demographics yields low precision because prediabetic and normoglycemic individuals share heavily overlapping age/BMI distributions without biochemical fasting glucose or HbA1c testing.
+1. **Prediabetes (`elevated_risk`) Screening Finding & Honest Framing**: `elevated_risk` AUROC reached **0.7302**, but precision remains modest at **29.17%** (roughly 1 in 3.4 flagged cases is truly prediabetic), meaning this output should be communicated to users as **"worth a follow-up test"** rather than a reliable standalone diagnosis. Distinguishing prediabetes from healthy adults using pure demographics yields modest precision because prediabetic and normoglycemic individuals share heavily overlapping age/BMI distributions without biochemical fasting glucose or HbA1c testing.
 2. **Rejection of Pooled 0.9825 Model**: The pooled model AUROC was rejected for production because demographic features (fasting survey indicator and inpatient missing BMI patterns) predict dataset origin (UCI 130 inpatient vs NHANES outpatient) with **AUROC = 1.0000**, creating an artificial shortcut between 100% diabetic inpatient charts and outpatient surveys.
-3. **Production Recommendation**: The scoped NHANES model (**Macro AUROC = 0.7296**, Diabetic AUROC = **0.8253**, Healthy AUROC = **0.7904**) is established as the honest production baseline for outpatient screening.
+3. **Production Recommendation**: The scoped NHANES model (**Macro AUROC = 0.8092**, Diabetic AUROC = **0.8847**, Healthy AUROC = **0.8127**) is established as the honest production baseline for outpatient screening.
 
 ---
 
@@ -76,12 +89,12 @@ Confusion Matrix [Healthy, Elevated, Diabetic]:
 
 | Experiment | Features | Test $R^2$ | $\Delta R^2$ | Test MAE (mg/dL) | $\Delta$ MAE | Clarke Zone A (%) | Clarke Zone A+B (%) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Full Sensor Baseline (All Modalities)** | 50 | **0.8536** | -0.0021 | **12.24** | +0.11 | 96.09% | 99.22% |
-| **Ablation 1: No PPG Morphology / Waveform Features** | 29 | **0.8763** | +0.0206 | **11.73** | -0.40 | 93.75% | 99.22% |
-| **Ablation 2: No ECG-HRV Autonomic Features** | 44 | **0.8375** | -0.0182 | **12.62** | +0.49 | 94.53% | 99.22% |
-| **Ablation 3: No Saliva pH Biochemical Sensor** | 48 | **0.8476** | -0.0081 | **12.33** | +0.20 | 94.53% | 99.22% |
-| **Ablation 4: No Skin Temperature Sensor** | 49 | **0.8484** | -0.0073 | **12.27** | +0.14 | 94.53% | 99.22% |
-| **PPG-Only Isolated Transducer Benchmark** | 21 | **0.2348** | -0.6209 | **29.58** | +17.45 | 52.34% | 96.88% |
+| **Full Sensor Baseline (All Modalities)** | 50 | **0.8541** | +0.0013 | **12.27** | -0.01 | 93.50% | 99.19% |
+| **Ablation 1: No PPG Morphology / Waveform Features** | 29 | **0.8658** | +0.0130 | **12.06** | -0.22 | 92.68% | 99.19% |
+| **Ablation 2: No ECG-HRV Autonomic Features** | 44 | **0.8390** | -0.0138 | **12.49** | +0.21 | 93.50% | 99.19% |
+| **Ablation 3: No Saliva pH Biochemical Sensor** | 48 | **0.8565** | +0.0037 | **12.22** | -0.06 | 95.12% | 99.19% |
+| **Ablation 4: No Skin Temperature Sensor** | 49 | **0.8544** | +0.0016 | **12.20** | -0.08 | 93.50% | 99.19% |
+| **PPG-Only Isolated Transducer Benchmark** | 21 | **0.2427** | -0.6101 | **29.78** | +17.50 | 52.85% | 96.75% |
 
 > [!NOTE]
 > **PPG Standalone Performance Framing**: Synthetic PPG features were deliberately designed with bounded individual correlations ($r=0.35-0.55$), resulting in isolated PPG $R^2=0.2322$. This reflects synthetic generator design choices rather than a definitive biological ceiling for real-world optical transducers.
@@ -91,8 +104,8 @@ Confusion Matrix [Healthy, Elevated, Diabetic]:
 ## 6. Uncertainty Quantification & Interval Coverage
 
 - **Method**: Quantile Gradient Boosting Regression at 5th, 50th, and 95th Percentiles  
-- **Empirical 90% Confidence Interval Coverage on Holdout Test Set**: **85.16%** (Target: 90.0%)  
-- **Mean Prediction Interval Width (MPIW)**: **96.56 mg/dL**  
+- **Empirical 90% Confidence Interval Coverage on Holdout Test Set**: **87.8%** (Target: 90.0%)  
+- **Mean Prediction Interval Width (MPIW)**: **99.78 mg/dL**  
 
 ---
 

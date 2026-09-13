@@ -1,7 +1,7 @@
 {
   "training_branch": "tabular_only",
-  "num_train_samples": 19317,
-  "num_test_samples": 4832,
+  "num_train_samples": 19332,
+  "num_test_samples": 4817,
   "target_column": "bgl_mg_dl",
   "metadata_columns": [
     "reading_id",
@@ -15,11 +15,13 @@
   ],
   "raw_numeric_features": [
     "age",
-    "bmi"
+    "bmi",
+    "waist_circumference_cm"
   ],
   "scaled_numeric_features": [
     "age_scaled",
-    "bmi_scaled"
+    "bmi_scaled",
+    "waist_circumference_cm_scaled"
   ],
   "categorical_and_binary_features": [
     "diag_none",
@@ -34,15 +36,31 @@
     "med_taking_insulin",
     "med_taking_oral",
     "med_taking_any",
+    "race_white",
+    "race_black",
+    "race_hispanic",
+    "race_asian",
+    "race_other",
+    "phys_act_active",
+    "phys_act_moderate",
+    "phys_act_sedentary",
+    "gdm_positive",
+    "gdm_negative",
+    "gdm_male_na",
+    "gdm_unknown",
     "gender_male",
     "family_history",
     "smoking",
     "fasting",
-    "bgl_is_hba1c_derived"
+    "bgl_is_hba1c_derived",
+    "hypertension",
+    "high_cholesterol",
+    "waist_cm_missing"
   ],
   "all_feature_columns": [
     "age",
     "bmi",
+    "waist_circumference_cm",
     "diag_none",
     "diag_prediabetes",
     "diag_type_1",
@@ -55,10 +73,25 @@
     "med_taking_insulin",
     "med_taking_oral",
     "med_taking_any",
+    "race_white",
+    "race_black",
+    "race_hispanic",
+    "race_asian",
+    "race_other",
+    "phys_act_active",
+    "phys_act_moderate",
+    "phys_act_sedentary",
+    "gdm_positive",
+    "gdm_negative",
+    "gdm_male_na",
+    "gdm_unknown",
     "gender_male",
     "family_history",
     "smoking",
     "fasting",
-    "bgl_is_hba1c_derived"
+    "bgl_is_hba1c_derived",
+    "hypertension",
+    "high_cholesterol",
+    "waist_cm_missing"
   ]
 }
