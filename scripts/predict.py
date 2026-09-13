@@ -123,6 +123,9 @@ class GlucosePredictor:
         ph_mean_base = self.fs_manifest.get("ph_mean_train_baseline", 7.255)
         ph_dev = float(raw_dict.get("ph_deviation_from_mean", saliva_ph - ph_mean_base))
 
+        # Calculate apg_a value for derived APG features
+        apg_a_val = float(raw_dict.get("apg_a", 75.0))
+
         raw_numeric = {
             "ppg_raw_dc_baseline": raw_dc,
             "ppg_raw_ac_p2p": raw_ac,
@@ -130,7 +133,9 @@ class GlucosePredictor:
             "ppg_diastolic_peak": dias_peak,
             "ppg_trough": trough,
             "perfusion_index": float(raw_dict.get("perfusion_index", (raw_ac / max(1.0, raw_dc)) * 100.0)),
-            "ppg_signal_energy": float(raw_dict.get("ppg_signal_energy", 1.5e7)),
+            "ppg_signal_energy": float(raw_dict.get("ppg_signal_energy", 
+                # Calculate ppg_signal_energy same as training: 0.5 * (0.5 * raw_ac)^2
+                0.5 * (0.5 * raw_ac) ** 2)),
             "pulse_pressure": float(raw_dict.get("pulse_pressure", sys_peak - dias_peak)),
             "hr_bpm": hr,
             "ppg_hr_bpm": float(raw_dict.get("ppg_hr_bpm", hr)),
@@ -138,13 +143,13 @@ class GlucosePredictor:
             "trough_to_trough_ms": float(raw_dict.get("trough_to_trough_ms", (60000.0 / max(30.0, hr)))),
             "dicrotic_notch_amp": float(raw_dict.get("dicrotic_notch_amp", (sys_peak + dias_peak) / 2.0)),
             "dicrotic_ratio": float(raw_dict.get("dicrotic_ratio", 0.45)),
-            "vpg_max": float(raw_dict.get("vpg_max", 45.0)),
-            "vpg_min": float(raw_dict.get("vpg_min", -35.0)),
-            "apg_a": float(raw_dict.get("apg_a", 1.0)),
+            "vpg_max": float(raw_dict.get("vpg_max", raw_ac * 1.65 * (hr / 60.0))),
+            "vpg_min": float(raw_dict.get("vpg_min", -raw_ac * 1.353 * (hr / 60.0))),
+            "apg_a": float(raw_dict.get("apg_a", 75.0)),  # Typical APG amplitude
             "apg_b": float(raw_dict.get("apg_b", -0.65)),
-            "apg_c": float(raw_dict.get("apg_c", -0.25)),
-            "apg_d": float(raw_dict.get("apg_d", -0.40)),
-            "apg_e": float(raw_dict.get("apg_e", 0.15)),
+            "apg_c": float(raw_dict.get("apg_c", apg_a_val * 0.25)),
+            "apg_d": float(raw_dict.get("apg_d", apg_a_val * -0.25)),
+            "apg_e": float(raw_dict.get("apg_e", apg_a_val * 0.15)),
             "apg_b_a_ratio": float(raw_dict.get("apg_b_a_ratio", -0.65)),
             "apg_aging_index": float(raw_dict.get("apg_aging_index", -0.35)),
             "hrv_sdnn": float(raw_dict.get("hrv_sdnn", 42.0)),
@@ -298,8 +303,17 @@ class GlucosePredictor:
         # 2. Calibrated Quantile Confidence Interval (5th to 95th Percentile)
         if self.quantile_bundle is not None:
             q_cols = self.quantile_bundle["feature_list"]
-            q05 = float(self.quantile_bundle["q05_model"].predict(X_df[q_cols])[0])
-            q95 = float(self.quantile_bundle["q95_model"].predict(X_df[q_cols])[0])
+            q05_raw = float(self.quantile_bundle["q05_model"].predict(X_df[q_cols])[0])
+            q95_raw = float(self.quantile_bundle["q95_model"].predict(X_df[q_cols])[0])
+            
+            # Apply conformal calibration margin if available
+            if "calibration_margin" in self.quantile_bundle:
+                margin = self.quantile_bundle["calibration_margin"]
+                q05 = q05_raw - margin
+                q95 = q95_raw + margin
+            else:
+                q05 = q05_raw
+                q95 = q95_raw
         else:
             # Empirical calibrated residual bounds from test distribution (MAE=12.13 mg/dL)
             q05 = pred_bgl - 20.0
