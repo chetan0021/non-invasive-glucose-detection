@@ -1,7 +1,7 @@
 {
   "training_branch": "tabular_only",
-  "num_train_samples": 19332,
-  "num_test_samples": 4817,
+  "num_train_samples": 19318,
+  "num_test_samples": 4831,
   "target_column": "bgl_mg_dl",
   "metadata_columns": [
     "reading_id",

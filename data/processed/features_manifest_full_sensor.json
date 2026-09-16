@@ -1,7 +1,7 @@
 {
   "training_branch": "full_sensor",
-  "num_train_samples": 493,
-  "num_test_samples": 123,
+  "num_train_samples": 469,
+  "num_test_samples": 125,
   "target_column": "bgl_mg_dl",
   "metadata_columns": [
     "reading_id",
@@ -155,5 +155,5 @@
     "smoking",
     "fasting"
   ],
-  "ph_mean_train_baseline": 7.25602434077079
+  "ph_mean_train_baseline": 7.2473773987206815
 }

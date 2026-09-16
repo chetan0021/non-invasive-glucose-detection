@@ -1045,9 +1045,19 @@ with tab_pred:
         # Item 6: Model Transparency Panel
         # ----------------------------------------------------------------------
         if "predicted_bgl_mg_dl" in prediction_result:
-            st.markdown("<div class='model-badge-fs'>MODEL A: Full-Sensor Multi-Modal Random Forest (R²=0.8557, Validated on Synthetic Data)</div>", unsafe_allow_html=True)
+            st.markdown("<div class='model-badge-fs'>MODEL A: Full-Sensor Multi-Modal Stacking Ensemble (R²=0.8528, Validated on Synthetic Data)</div>", unsafe_allow_html=True)
         else:
             st.markdown("<div class='model-badge-tab'>MODEL B: Tabular Demographic Screening Classifier (CDC NHANES Scoped, Macro AUROC=0.81)</div>", unsafe_allow_html=True)
+
+        # Out-Of-Distribution (OOD) Safety Warning
+        if prediction_result.get("is_out_of_distribution"):
+            st.markdown(
+                f"<div class='disclaimer-critical'>"
+                f"⚠️ <b>OUT-OF-DISTRIBUTION INPUT WARNING:</b><br/>"
+                f"{prediction_result.get('ood_warning')}"
+                f"</div>",
+                unsafe_allow_html=True
+            )
 
         # Type 1 Specific Safety Warning
         if "Type 1" in diag_clean:
@@ -1103,6 +1113,7 @@ with tab_pred:
             # Item 2: Confidence Interval Visual Range Gauge (Plotly)
             # ------------------------------------------------------------------
             st.markdown("#### 🎯 Prediction Uncertainty & Safety Zone Mapping")
+            st.caption("ℹ️ *Uncertainty range is currently under calibration validation - treat as an outer bound, not a precise range.*")
             fig_ci = plot_confidence_interval_gauge(bgl, ci[0], ci[1])
             st.plotly_chart(fig_ci, use_container_width=True)
 

@@ -16,7 +16,7 @@ import json
 import pickle
 import argparse
 from pathlib import Path
-from typing import Dict, Any, Union, Optional
+from typing import Dict, Any, Union, Optional, Tuple, List
 
 import numpy as np
 import pandas as pd
@@ -47,6 +47,20 @@ except (ImportError, AttributeError):
         pass
 
 
+# Training distribution boundaries (1st to 99th percentiles) for Out-Of-Distribution (OOD) detection
+TRAINING_FEATURE_BOUNDS = {
+    "age": {"p01": 18.0, "p99": 70.0, "name": "Age (years)"},
+    "bmi": {"p01": 19.4, "p99": 40.6, "name": "BMI (kg/m^2)"},
+    "saliva_ph": {"p01": 6.60, "p99": 7.60, "name": "Saliva pH"},
+    "temperature_c": {"p01": 36.2, "p99": 37.2, "name": "Skin Temperature (deg C)"},
+    "hr_bpm": {"p01": 52.0, "p99": 122.0, "name": "Heart Rate (BPM)"},
+    "ppg_raw_dc_baseline": {"p01": 155000.0, "p99": 195000.0, "name": "PPG DC Baseline"},
+    "ppg_raw_ac_p2p": {"p01": 1100.0, "p99": 4250.0, "name": "PPG AC Amplitude"},
+    "perfusion_index": {"p01": 0.60, "p99": 2.60, "name": "Perfusion Index (%)"},
+    "pulse_width_ms": {"p01": 145.0, "p99": 350.0, "name": "Pulse Width (ms)"}
+}
+
+
 class GlucosePredictor:
     """
     Production-grade inference engine for multi-modal non-invasive glucose prediction
@@ -55,7 +69,7 @@ class GlucosePredictor:
 
     def __init__(self):
         # 1. Model A: Full-Sensor Regression Artifacts
-        self.fs_model_path = MODELS_DIR / "production_model_full_sensor.pkl"
+        self.fs_model_path = MODELS_DIR / "production_model_full_sensor_stacked.pkl"
         self.fs_scaler_path = MODELS_DIR / "scaler_full_sensor.pkl"
         self.fs_manifest_path = REPORTS_DIR / "features_manifest_full_sensor.json"
         self.fs_meta_path = MODELS_DIR / "model_metadata_full_sensor.json"
@@ -67,6 +81,30 @@ class GlucosePredictor:
         self.tab_meta_path = MODELS_DIR / "model_metadata_tabular_riskclass.json"
 
         self._load_and_verify_artifacts()
+
+    def check_ood(self, input_dict: Dict[str, Any]) -> Tuple[bool, List[str], Optional[str]]:
+        """
+        Checks whether any continuous input biometrics fall meaningfully outside
+        the 1st-99th percentile range of the training data distribution.
+        """
+        ood_features = []
+        for key, bounds in TRAINING_FEATURE_BOUNDS.items():
+            if key in input_dict and input_dict[key] is not None:
+                try:
+                    val = float(input_dict[key])
+                    # Flag if meaningfully below 1st percentile or above 99th percentile
+                    if val < bounds["p01"] or val > bounds["p99"]:
+                        ood_features.append(f"{bounds['name']}: {val} (Training 1st-99th: [{bounds['p01']}, {bounds['p99']}])")
+                except (ValueError, TypeError):
+                    pass
+
+        if ood_features:
+            warning_msg = (
+                "This input falls outside the range of data this model was trained on "
+                f"({'; '.join(ood_features)}) - the prediction below is an extrapolation and may be unreliable."
+            )
+            return True, ood_features, warning_msg
+        return False, [], None
 
     def _load_and_verify_artifacts(self):
         # Load Model A Artifacts
@@ -368,6 +406,9 @@ class GlucosePredictor:
         else:
             diag_conf = "Synthetic self-consistency benchmark confidence (N=128 holdout, R²=0.8557, MAE=12.13 mg/dL, 99.22% Clarke Zone A+B)."
 
+        # 6. Out-Of-Distribution (OOD) Check
+        is_ood, ood_feats, ood_warn = self.check_ood(input_dict)
+
         return {
             "predicted_bgl_mg_dl": pred_bgl,
             "confidence_interval_5th_95th": [q05_calibrated, q95_calibrated],
@@ -375,9 +416,12 @@ class GlucosePredictor:
             "empirical_interval_coverage": "85.16% empirical test coverage (Target: 90%)",
             "clarke_zone": clarke_zone,
             "trend": trend,
-            "model_version": "Model A (Full-Sensor Multi-Modal Random Forest v1.0)",
+            "model_version": "Model A (Full-Sensor Multi-Modal Stacking Regressor v1.0)",
             "validation_status": "synthetic_self_consistency_only",
-            "diagnosis_stratum_confidence": diag_conf
+            "diagnosis_stratum_confidence": diag_conf,
+            "is_out_of_distribution": is_ood,
+            "ood_features": ood_feats,
+            "ood_warning": ood_warn
         }
 
     # --------------------------------------------------------------------------
@@ -410,16 +454,22 @@ class GlucosePredictor:
             risk_band = "elevated_risk_consult_recommended"
             guidance = "Demographic profile indicates elevated metabolic risk factors. Clinical follow-up with fasting plasma glucose or HbA1c testing is recommended."
 
+        # Out-Of-Distribution Check
+        is_ood, ood_feats, ood_warn = self.check_ood(input_dict)
+
         return {
             "risk_band": risk_band,
             "clinical_guidance": guidance,
             "predicted_risk_probabilities": prob_dict,
             "model_confidence_note": (
-                f"Demographic screening only — Macro AUROC={self.tab_meta.get('macro_auroc', 0.87):.2f}, cannot reliably detect early prediabetes. "
+                f"Demographic screening only — Macro AUROC={self.tab_meta.get('macro_auroc', 0.81):.2f}, cannot reliably detect early prediabetes. "
                 "This is not a glucose measurement. Recommend fasting glucose or HbA1c test for definitive screening."
             ),
             "model_version": "Model B (Tabular Demographic Risk Classifier v1.0 - NHANES Scoped)",
-            "validated_scope": "CDC NHANES Community Outpatient Screening"
+            "validated_scope": "CDC NHANES Community Outpatient Screening",
+            "is_out_of_distribution": is_ood,
+            "ood_features": ood_feats,
+            "ood_warning": ood_warn
         }
 
     # --------------------------------------------------------------------------

@@ -112,9 +112,23 @@ def generate_synthetic_dataset(
     rows = []
 
     # Distribution of latent diabetes states across population
-    # 34% Healthy (None), 18% Prediabetes, 30% Type 2 (18% ctrl, 12% unctrl), 18% Type 1 (~29 participants)
-    state_probs = [0.34, 0.18, 0.18, 0.12, 0.18]
-    diabetes_classes = ["healthy", "prediabetic", "type2_controlled", "type2_uncontrolled", "type1"]
+    # REBALANCED EXTREME VALUE SAMPLING: 8% hypoglycemic, 10% severe hyperglycemic
+    # Original: 34% Healthy, 18% Prediabetes, 30% Type 2 (18% ctrl, 12% unctrl), 18% Type 1
+    # Rebalanced: Add explicit extreme value strata
+    
+    # Calculate stratum sizes for target extreme representation
+    target_hypo_pct = 0.08  # 8% hypoglycemic (<70)
+    target_severe_pct = 0.10  # 10% severe hyperglycemic (>250)
+    target_normal_pct = 0.82  # 82% normal range (70-250)
+    
+    # Map diabetes states to glucose ranges for stratification
+    # Hypoglycemic stratum: Type 1 fasting with increased hypoglycemic probability
+    # Severe hyperglycemic stratum: Type 1 + Type 2 uncontrolled with increased severe probability
+    # Normal stratum: All others
+    
+    # Adjusted state probabilities to achieve target extreme representation
+    state_probs = [0.28, 0.16, 0.20, 0.16, 0.20]  # Rebalanced for extreme cases
+    diabetes_classes = ["healthy", "prediabetic", "type2_controlled", "type2_uncontrolled", "type1_extreme"]
 
     for p_idx in range(n_participants):
         p_id = f"SYNTH_{p_idx+1:03d}"
@@ -145,7 +159,7 @@ def generate_synthetic_dataset(
             fam_hist = int(np.random.choice([0, 1], p=[0.15, 0.85]))
             diagnosis = "Type 2"
             medication = np.random.choice(["Metformin+Sulfonylurea+Insulin", "Insulin_High_Dose"], p=[0.60, 0.40])
-        else:  # type1 (Expanded 18% cohort with specific younger demographic & insulin therapies)
+        else:  # type1_extreme (Enhanced for extreme value generation - hypoglycemic + severe hyperglycemic)
             age = int(np.clip(int(np.random.normal(29.0, 9.0)), 18, 55))
             bmi = float(np.clip(float(np.random.normal(23.5, 2.5)), 18.5, 30.0))
             fam_hist = int(np.random.choice([0, 1], p=[0.70, 0.30]))
@@ -162,7 +176,7 @@ def generate_synthetic_dataset(
             "prediabetic": -0.05,
             "type2_controlled": +0.15,
             "type2_uncontrolled": +0.40,
-            "type1": +0.05
+            "type1_extreme": +0.05
         }[d_state]
         combined_skew = float(0.65 * age_skew + 0.35 * health_skew)
 
@@ -173,8 +187,8 @@ def generate_synthetic_dataset(
         p_base_ba = float(sample_grounded_feature("apg_b_a_ratio", fingertip_stats, pooled_stats, combined_skew, 1)[0])
         p_base_ai = float(sample_grounded_feature("apg_aging_index", fingertip_stats, pooled_stats, combined_skew, 1)[0])
 
-        # Type 1 physiological adjustment: autonomic attenuation (reduced resting HRV)
-        if d_state == "type1":
+        # Type 1 extreme physiological adjustment: enhanced autonomic attenuation for extreme cases
+        if d_state == "type1_extreme":
             p_base_sdnn = float(np.clip(p_base_sdnn * 0.88, 12.0, 130.0))
             p_base_rmssd = float(np.clip(p_base_rmssd * 0.85, 10.0, 120.0))
 
@@ -214,44 +228,75 @@ def generate_synthetic_dataset(
                 else:
                     bgl = np.random.normal(242.0, 32.0)
                     bgl = np.clip(bgl, 175.0, 335.0)
-            else:  # type1 (Fast glycemic swings, high post-meal excursions and nocturnal volatility)
-                if is_fasting:
-                    bgl = np.random.normal(136.0, 36.0)
-                    bgl = np.clip(bgl, 58.0, 270.0)
-                else:
-                    bgl = np.random.normal(215.0, 52.0)
-                    bgl = np.clip(bgl, 70.0, 360.0)
+            else:  # type1_extreme (Stratified extreme value generation for safety rebalancing)
+                # Stratified sampling: 50% hypoglycemic, 35% severe hyperglycemic, 15% normal
+                extreme_stratum = np.random.choice(["hypoglycemic", "severe_hyperglycemic", "normal"], 
+                                                 p=[0.50, 0.35, 0.15])
+                
+                if extreme_stratum == "hypoglycemic":
+                    # Hypoglycemic cases (<70 mg/dL) - dawn phenomenon, missed meals, insulin overdose
+                    if is_fasting:
+                        bgl = np.random.normal(58.0, 8.0)  # Fasting hypoglycemia
+                        bgl = np.clip(bgl, 40.0, 69.0)
+                    else:
+                        bgl = np.random.normal(62.0, 6.0)  # Post-meal reactive hypoglycemia 
+                        bgl = np.clip(bgl, 45.0, 69.0)
+                        
+                elif extreme_stratum == "severe_hyperglycemic":
+                    # Severe hyperglycemic cases (>250 mg/dL) - DKA risk, poor control
+                    if is_fasting:
+                        bgl = np.random.normal(285.0, 35.0)  # Fasting severe hyperglycemia
+                        bgl = np.clip(bgl, 251.0, 380.0)
+                    else:
+                        bgl = np.random.normal(320.0, 45.0)  # Post-meal severe excursion
+                        bgl = np.clip(bgl, 260.0, 450.0)
+                        
+                else:  # normal (standard Type 1 range for comparison)
+                    if is_fasting:
+                        bgl = np.random.normal(136.0, 36.0)
+                        bgl = np.clip(bgl, 70.0, 250.0)  # Constrain to normal-high range
+                    else:
+                        bgl = np.random.normal(185.0, 35.0)
+                        bgl = np.clip(bgl, 90.0, 250.0)
 
             bgl = float(np.round(bgl, 1))
             glucose_z = (bgl - 120.0) / 55.0
 
-            # 3. Glycemic State & Non-Conflated Diabetes Status
-            if bgl < 100.0:
+            # 3. Glycemic State & Non-Conflated Diabetes Status (updated for extreme values)
+            if bgl < 70.0:
+                glycemic_state = "hypoglycemic"  # New category for <70
+            elif bgl < 100.0:
                 glycemic_state = "normal"
             elif bgl < 180.0:
                 glycemic_state = "elevated"
             elif bgl < 250.0:
                 glycemic_state = "high"
             else:
-                glycemic_state = "very_high"
+                glycemic_state = "very_high"  # ≥250 severe hyperglycemic
 
-            # Composite diabetes_status Construction
+            # Composite diabetes_status Construction (updated for hypoglycemic cases)
             if diagnosis == "None":
-                if glycemic_state == "normal":
+                if glycemic_state == "hypoglycemic":
+                    status_label = "healthy_hypoglycemic"
+                elif glycemic_state == "normal":
                     status_label = "healthy"
                 elif glycemic_state == "elevated":
                     status_label = "undiagnosed_elevated"
                 else:
                     status_label = "undiagnosed_high"
             elif diagnosis == "Prediabetes":
-                if glycemic_state == "normal":
+                if glycemic_state == "hypoglycemic":
+                    status_label = "prediabetes_hypoglycemic"
+                elif glycemic_state == "normal":
                     status_label = "prediabetes_normoglycemic"
                 elif glycemic_state == "elevated":
                     status_label = "prediabetes_elevated"
                 else:
                     status_label = "prediabetes_high"
             elif diagnosis == "Type 2":
-                if glycemic_state == "normal":
+                if glycemic_state == "hypoglycemic":
+                    status_label = "type2_hypoglycemic"
+                elif glycemic_state == "normal":
                     status_label = "type2_normoglycemic"
                 elif glycemic_state == "elevated":
                     status_label = "type2_controlled"
@@ -260,12 +305,16 @@ def generate_synthetic_dataset(
                 else:
                     status_label = "type2_severe"
             else:  # Type 1
-                if glycemic_state == "normal":
+                if glycemic_state == "hypoglycemic":
+                    status_label = "type1_hypoglycemic"
+                elif glycemic_state == "normal":
                     status_label = "type1_normoglycemic"
                 elif glycemic_state == "elevated":
                     status_label = "type1_elevated"
-                else:
+                elif glycemic_state == "high":
                     status_label = "type1_uncontrolled"
+                else:
+                    status_label = "type1_severe"
 
             # 4. Saliva pH Derivation (Ahadian et al. 2025: Target R^2 in 0.20 - 0.35)
             ph_signal = -0.115 * glucose_z

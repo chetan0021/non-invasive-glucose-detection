@@ -142,42 +142,37 @@ cp quantile_regressor_conformal_calibrated.pkl quantile_regressor_full_sensor.pk
 
 ---
 
-# Safety Assessment: Clarke Error Grid Analysis
+# CRITICAL SAFETY FINDING: Clarke Zone D Failures
 
-## 🔍 **Extreme Case Performance**
+## 🚨 **Discovery**
+Testing revealed that **both current and previous models exhibit Clarke Zone D failures** on extreme benchmark cases:
 
-**Current Model Results:**
-- **Severe Hyperglycemia**: Reference 265.0 mg/dL → Predicted 138.6 mg/dL (Zone B)
-- **Hypoglycemia**: Reference 62.0 mg/dL → Predicted 82.7 mg/dL (Zone B)
+- **Severe Hyperglycemia**: Reference 265 mg/dL → Predicted ~139 mg/dL (**Zone D**)
+- **Hypoglycemia**: Reference 62 mg/dL → Predicted ~83 mg/dL (**Zone D**)
 
-## ⚠️ **Clinical Impact Analysis**
+## 📊 **Root Cause Analysis**  
+This is **NOT a regression** from recent preprocessing fixes, but a **pre-existing limitation**:
 
-### Severe Hyperglycemia Case
-- **Clinical Reality**: Diabetic ketoacidosis risk, needs immediate insulin
-- **Model Prediction**: Elevated but not critical range
-- **Clarke Zone B**: Benign error - wouldn't lead to dangerous treatment
-- **Impact**: May delay urgent treatment, but won't cause opposite treatment
+1. **Training Data Sparsity**: 0.4% hypoglycemic, 5.7% severe hyperglycemic samples
+2. **Model Behavior**: Regression toward population mean for under-represented extreme values
+3. **Consistent Pattern**: Same Zone D failures exist across model versions
 
-### Hypoglycemia Case  
-- **Clinical Reality**: Needs immediate glucose, risk of unconsciousness
-- **Model Prediction**: Low-normal range
-- **Clarke Zone B**: Benign error - wouldn't lead to dangerous treatment
-- **Impact**: May delay glucose treatment, but won't cause opposite treatment
+## ⚠️ **Safety Assessment**
+- **Zone D**: Dangerous failure to detect critical glucose levels
+- **Clinical Impact**: May delay urgent treatment for DKA or severe hypoglycemia  
+- **Not Zone E**: Doesn't cause opposite treatment (less critical than Zone E)
 
-## 📊 **Full Benchmark Assessment**
-- **Zone A (Accurate)**: 60% of cases
-- **Zone B (Benign)**: 40% of cases  
-- **Zone C/D/E (Dangerous)**: 0% of cases ✅
+## 📋 **Status**
+- **RETRACTED**: Claims of "production approved" and "no Zone D failures"
+- **CORRECTED**: 87% coverage improvement was real but insufficient for extreme case safety
+- **REVERTED**: Emergency safety revert deployed until training data rebalancing complete
 
-## ⚠️ **Known Limitations**
-- **Training Data Sparsity**: 0.4% hypoglycemic, 5.7% severe hyperglycemic samples
-- **Conservative Bias**: Model regresses extreme cases toward population mean
-- **Acceptable Trade-off**: Zone B errors safer than overconfident Zone D/E failures
+## 🔧 **Required Fix**
+Training data rebalancing to 8-10% representation each for:
+- Hypoglycemic samples (<70 mg/dL) 
+- Severe hyperglycemic samples (>250 mg/dL)
 
-## 🎯 **Safety Verdict**
-**NO CRITICAL SAFETY REGRESSION**: All predictions in acceptable Clarke zones. Conservative predictions are safer than overconfident errors, though may delay optimal treatment timing.
-
-**Recommendation**: Proceed with current model while planning training data rebalancing for improved extreme case accuracy.
+Only deploy after confirmed elimination of Zone D failures on all benchmark presets.
 
 ---
 

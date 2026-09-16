@@ -13,13 +13,13 @@
 | **CDC NHANES 2017-2018** | **3,036** | **2,507** (384 pediatric age < 18 filtered) | `tabular_only` | Tabular Only (`has_ppg=False`) |
 | **UCI Diabetes 130** | **101,766** | **21,612** (454 pediatric age < 20 filtered) | `tabular_only` | Tabular Only (`has_ppg=False`) |
 | **Synthetic Multi-Modal** | **609** | **609** (Adult 18–78 cohort) | `full_sensor` | Full Multi-Modal (`has_ppg=True`, `has_ph=True`) |
-| **TOTAL UNIFIED** | **105,411** | **24,765** (Total 1,236 pediatric rows removed) | *(Two-Branch Schema)* | — |
+| **TOTAL UNIFIED** | **105,411** | **24,743** (Total 1,236 pediatric rows removed) | *(Two-Branch Schema)* | — |
 
 ---
 
 ## 2. Two-Branch Architecture Breakdown
 
-- **`full_sensor` Branch** (Rows with `has_ppg=True` AND `has_ph=True`): **616** rows (2.5% of dataset).
+- **`full_sensor` Branch** (Rows with `has_ppg=True` AND `has_ph=True`): **594** rows (2.5% of dataset).
 - **`tabular_only` Branch** (Rows with `has_ppg=False`): **24,149** rows (97.5% of dataset).
 
 ---
@@ -27,28 +27,30 @@
 ## 3. Corrected Non-Conflated Clinical Taxonomy
 
 ### Cross-Tab: `diabetes_diagnosis` $\times$ `glycemic_state_at_reading`
-| diabetes_diagnosis   |   elevated |   high |   normal |   very_high |   All |
-|:---------------------|-----------:|-------:|---------:|------------:|------:|
-| None                 |       1044 |      4 |      910 |           5 |  1963 |
-| Prediabetes          |        374 |      8 |       71 |           3 |   456 |
-| Type 1               |        280 |    748 |      273 |         588 |  1889 |
-| Type 2               |       6059 |   5815 |     5084 |        3499 | 20457 |
-| All                  |       7757 |   6575 |     6338 |        4095 | 24765 |
+| diabetes_diagnosis   |   elevated |   high |   hypoglycemic |   normal |   very_high |   All |
+|:---------------------|-----------:|-------:|---------------:|---------:|------------:|------:|
+| None                 |       1033 |      4 |              0 |      896 |           5 |  1938 |
+| Prediabetes          |        361 |      8 |              0 |       71 |           3 |   443 |
+| Type 1               |        241 |    712 |             53 |      265 |         613 |  1884 |
+| Type 2               |       6057 |   5836 |              0 |     5084 |        3501 | 20478 |
+| All                  |       7692 |   6560 |             53 |     6316 |        4122 | 24743 |
 
 ### Value Counts of Unified `diabetes_status`:
 | diabetes_status           |   count |
 |:--------------------------|--------:|
-| type2_controlled          |    6059 |
-| type2_uncontrolled        |    5815 |
+| type2_controlled          |    6057 |
+| type2_uncontrolled        |    5836 |
 | type2_normoglycemic       |    5084 |
-| type2_severe              |    3499 |
-| type1_uncontrolled        |    1336 |
-| undiagnosed_elevated      |    1044 |
-| healthy                   |     910 |
-| prediabetes_elevated      |     374 |
-| type1_elevated            |     280 |
-| type1_normoglycemic       |     273 |
+| type2_severe              |    3501 |
+| type1_uncontrolled        |    1284 |
+| undiagnosed_elevated      |    1033 |
+| healthy                   |     896 |
+| prediabetes_elevated      |     361 |
+| type1_normoglycemic       |     265 |
+| type1_elevated            |     241 |
 | prediabetes_normoglycemic |      71 |
+| type1_hypoglycemic        |      53 |
+| type1_severe              |      41 |
 | prediabetes_high          |      11 |
 | undiagnosed_high          |       9 |
 
@@ -57,7 +59,7 @@
 > 1. `diabetes_diagnosis` is invariant and reflects known medical diagnosis.
 > 2. `glycemic_state_at_reading` reflects the instantaneous measurement (<100: normal, 100-179: elevated, 180-249: high, >=250: very_high).
 > 3. Diagnosed Type 2 patients with a normal glucose reading are accurately classified as `type2_normoglycemic` (5,084 rows) rather than being conflated as `healthy`.
-> 4. The label `healthy` is strictly reserved for `diabetes_diagnosis == "None"` AND `glycemic_state_at_reading == "normal"` (910 rows).
+> 4. The label `healthy` is strictly reserved for `diabetes_diagnosis == "None"` AND `glycemic_state_at_reading == "normal"` (896 rows).
 
 ---
 
@@ -80,8 +82,8 @@
 
 - **Partitioning Method**: Stratified by `training_branch` and `diabetes_diagnosis` at the unique `participant_id` level.
 - **Data Leakage Guarantee**: **0 overlapping `participant_id` values** between train and test splits.
-- **Train Split (`train.csv`)**: **19,825** rows (16,792 unique participants).
-- **Test Split (`test.csv`)**: **4,940** rows (4,198 unique participants).
+- **Train Split (`train.csv`)**: **19,787** rows (16,792 unique participants).
+- **Test Split (`test.csv`)**: **4,956** rows (4,198 unique participants).
 
 ---
 
@@ -106,49 +108,49 @@
 | `context` | 0.0% | 0.0% | 0.0% | 0.0% |
 | `fasting` | 0.0% | 100.0% | 0.0% | 87.3% |
 | `bgl_mg_dl` | 4.3% | 78.6% | 0.0% | 0.0% |
-| `saliva_ph` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `temperature_c` | 100.0% | 100.0% | 0.0% | 97.5% |
+| `saliva_ph` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `temperature_c` | 100.0% | 100.0% | 0.0% | 97.6% |
 | `age` | 0.0% | 0.0% | 0.0% | 0.0% |
 | `gender` | 0.0% | 0.0% | 0.0% | 0.0% |
 | `bmi` | 1.9% | 100.0% | 0.0% | 87.5% |
 | `family_history` | 0.0% | 100.0% | 0.0% | 87.3% |
 | `medication` | 0.0% | 0.0% | 0.0% | 0.0% |
 | `smoking` | 0.0% | 100.0% | 0.0% | 87.3% |
-| `race_ethnicity` | 0.0% | 0.0% | 100.0% | 2.5% |
+| `race_ethnicity` | 0.0% | 0.0% | 100.0% | 2.4% |
 | `waist_circumference_cm` | 6.0% | 100.0% | 100.0% | 90.3% |
-| `physical_activity_level` | 0.0% | 0.0% | 100.0% | 2.5% |
+| `physical_activity_level` | 0.0% | 0.0% | 100.0% | 2.4% |
 | `hypertension` | 0.2% | 100.0% | 100.0% | 89.8% |
 | `high_cholesterol` | 0.9% | 100.0% | 100.0% | 89.8% |
 | `hdl_cholesterol_mg_dl` | 5.8% | 100.0% | 100.0% | 89.9% |
-| `gestational_diabetes` | 0.0% | 53.7% | 100.0% | 47.9% |
-| `ppg_raw_dc_baseline` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `ppg_raw_ac_p2p` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `ppg_systolic_peak` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `ppg_diastolic_peak` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `ppg_trough` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `perfusion_index` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `ppg_signal_energy` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `hr_bpm` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `ppg_hr_bpm` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `pulse_width_ms` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `trough_to_trough_ms` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `dicrotic_notch_amp` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `dicrotic_ratio` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `vpg_max` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `vpg_min` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `apg_a` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `apg_b` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `apg_c` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `apg_d` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `apg_e` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `apg_b_a_ratio` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `apg_aging_index` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `hrv_sdnn` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `hrv_rmssd` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `hrv_pnn50` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `hrv_lf` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `hrv_hf` | 100.0% | 100.0% | 0.0% | 97.5% |
-| `hrv_lf_hf_ratio` | 100.0% | 100.0% | 0.0% | 97.5% |
+| `gestational_diabetes` | 0.0% | 53.7% | 100.0% | 47.8% |
+| `ppg_raw_dc_baseline` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `ppg_raw_ac_p2p` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `ppg_systolic_peak` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `ppg_diastolic_peak` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `ppg_trough` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `perfusion_index` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `ppg_signal_energy` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `hr_bpm` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `ppg_hr_bpm` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `pulse_width_ms` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `trough_to_trough_ms` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `dicrotic_notch_amp` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `dicrotic_ratio` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `vpg_max` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `vpg_min` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `apg_a` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `apg_b` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `apg_c` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `apg_d` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `apg_e` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `apg_b_a_ratio` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `apg_aging_index` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `hrv_sdnn` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `hrv_rmssd` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `hrv_pnn50` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `hrv_lf` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `hrv_hf` | 100.0% | 100.0% | 0.0% | 97.6% |
+| `hrv_lf_hf_ratio` | 100.0% | 100.0% | 0.0% | 97.6% |
 
 ---
 
@@ -180,6 +182,6 @@
 24149      SYNTH_001     full_sensor      145.1       7.26            1.291           176.0      6.00        Prediabetes  prediabetes_elevated
 24150      SYNTH_001     full_sensor      106.8       7.10            0.619           157.1      6.00        Prediabetes  prediabetes_elevated
 24151      SYNTH_001     full_sensor      131.7       7.15            1.707           173.1     15.09        Prediabetes  prediabetes_elevated
-24152      SYNTH_002     full_sensor      124.6       7.19            2.016           207.7    121.93             Type 1        type1_elevated
-24153      SYNTH_002     full_sensor      205.0       7.21            1.150           260.8     96.41             Type 1    type1_uncontrolled
+24152      SYNTH_002     full_sensor      273.9       6.86            2.497           272.9     81.21             Type 1          type1_severe
+24153      SYNTH_002     full_sensor       64.9       7.40            1.133           222.5    140.00             Type 1    type1_hypoglycemic
 ```
