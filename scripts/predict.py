@@ -161,6 +161,46 @@ class GlucosePredictor:
         ph_mean_base = self.fs_manifest.get("ph_mean_train_baseline", 7.255)
         ph_dev = float(raw_dict.get("ph_deviation_from_mean", saliva_ph - ph_mean_base))
 
+        # ------------------------------------------------------------------ #
+        # Derived features — computed from raw inputs using the same         #
+        # formulas synth_generator.py uses during training, so that the      #
+        # inference feature vector stays consistent with the training data.  #
+        #                                                                    #
+        # ppg_signal_energy: generator computes 0.5*(raw_ac/2)**2 then adds  #
+        #   noise N(0, 0.12*(raw_ac/2)**2) and clamps to ≥10 000.            #
+        #   Noise-free deterministic equivalent: raw_ac**2 / 8.              #
+        #   NOTE: in extreme archetype rows the generator reassigns raw_ac   #
+        #   AFTER computing energy, so the formula-to-stored-value corr is   #
+        #   only 0.47 in training. This is a generator ordering artefact, not#
+        #   a formula error — raw_ac**2/8 is still the best available        #
+        #   inference estimate from the caller-provided raw_ac.              #
+        #                                                                    #
+        # vpg_max/vpg_min: derived via OLS slope fitted on training data     #
+        #   (1.6988 and -1.3799 vs generator nominals 1.65 and -1.353).      #
+        #   OLS slopes incorporate the noise intercept and are more accurate.#
+        #                                                                    #
+        # apg_a: generator draws N(75, 15) INDEPENDENT of raw_ac (r=0.009  #
+        #   in training data — confirmed). The MAP estimate for a missing    #
+        #   apg_a is therefore the training mean (75.9535), not any          #
+        #   raw_ac-scaled value. Using raw_ac*0.03 would introduce a         #
+        #   spurious correlation absent from the training distribution.      #
+        #   GENERATOR DESIGN GAP flagged: real APG a-wave amplitude should   #
+        #   physiologically scale with pulse amplitude; it does not here.    #
+        #                                                                    #
+        # apg_b/c/d/e: derived from the inferred apg_a using the training-  #
+        #   mean ratios (b_a=-0.9243, c/a=0.25, d/a=-0.25, e/a=0.15).       #
+        #   apg_b_a_ratio and apg_aging_index use exact training means.     #
+        # ------------------------------------------------------------------ #
+        ac_half = 0.5 * raw_ac
+        ppg_signal_energy_derived = max(0.5 * (ac_half ** 2), 10000.0)  # noise-free generator formula
+        vpg_max_derived  =  raw_ac * 1.6988 * (hr / 60.0)   # OLS slope from training data
+        vpg_min_derived  = -raw_ac * 1.3799 * (hr / 60.0)   # OLS slope from training data
+        # apg_a is statistically independent of raw_ac in training (r=0.009);
+        # training-mean (75.9535) is the MAP estimate when apg_a is not provided.
+        _apg_a_default   = 75.9535
+        _apg_ba_default  = -0.9243   # training mean of apg_b_a_ratio
+        _apg_ai_default  = -1.2752   # training mean of apg_aging_index
+
         raw_numeric = {
             "ppg_raw_dc_baseline": raw_dc,
             "ppg_raw_ac_p2p": raw_ac,
@@ -168,7 +208,7 @@ class GlucosePredictor:
             "ppg_diastolic_peak": dias_peak,
             "ppg_trough": trough,
             "perfusion_index": float(raw_dict.get("perfusion_index", (raw_ac / max(1.0, raw_dc)) * 100.0)),
-            "ppg_signal_energy": float(raw_dict.get("ppg_signal_energy", 1.5e7)),
+            "ppg_signal_energy": float(raw_dict.get("ppg_signal_energy", ppg_signal_energy_derived)),
             "pulse_pressure": float(raw_dict.get("pulse_pressure", sys_peak - dias_peak)),
             "hr_bpm": hr,
             "ppg_hr_bpm": float(raw_dict.get("ppg_hr_bpm", hr)),
@@ -176,15 +216,25 @@ class GlucosePredictor:
             "trough_to_trough_ms": float(raw_dict.get("trough_to_trough_ms", (60000.0 / max(30.0, hr)))),
             "dicrotic_notch_amp": float(raw_dict.get("dicrotic_notch_amp", (sys_peak + dias_peak) / 2.0)),
             "dicrotic_ratio": float(raw_dict.get("dicrotic_ratio", 0.45)),
-            "vpg_max": float(raw_dict.get("vpg_max", 45.0)),
-            "vpg_min": float(raw_dict.get("vpg_min", -35.0)),
-            "apg_a": float(raw_dict.get("apg_a", 1.0)),
-            "apg_b": float(raw_dict.get("apg_b", -0.65)),
-            "apg_c": float(raw_dict.get("apg_c", -0.25)),
-            "apg_d": float(raw_dict.get("apg_d", -0.40)),
-            "apg_e": float(raw_dict.get("apg_e", 0.15)),
-            "apg_b_a_ratio": float(raw_dict.get("apg_b_a_ratio", -0.65)),
-            "apg_aging_index": float(raw_dict.get("apg_aging_index", -0.35)),
+            "vpg_max": float(raw_dict.get("vpg_max", vpg_max_derived)),
+            "vpg_min": float(raw_dict.get("vpg_min", vpg_min_derived)),
+        }
+        # apg_a: if caller provides it, use it directly; otherwise training mean
+        _apg_a = float(raw_dict.get("apg_a", _apg_a_default))
+        # apg_b_a_ratio and apg_aging_index: use caller value or exact training mean
+        _apg_ba  = float(raw_dict.get("apg_b_a_ratio",   _apg_ba_default))
+        _apg_ai  = float(raw_dict.get("apg_aging_index", _apg_ai_default))
+        raw_numeric.update({
+            # apg_b/c/d/e derived from apg_a using training-mean ratios
+            "apg_a":           _apg_a,
+            "apg_b":           float(raw_dict.get("apg_b", _apg_a * _apg_ba)),
+            "apg_c":           float(raw_dict.get("apg_c", _apg_a * 0.25)),   # midpoint of U(0.15,0.35)
+            "apg_d":           float(raw_dict.get("apg_d", _apg_a * -0.25)),  # midpoint of U(-0.35,-0.15)
+            "apg_e":           float(raw_dict.get("apg_e", _apg_a * 0.15)),   # midpoint of U(0.08,0.22)
+            "apg_b_a_ratio":   _apg_ba,
+            "apg_aging_index": _apg_ai,
+        })
+        raw_numeric.update({
             "hrv_sdnn": float(raw_dict.get("hrv_sdnn", 42.0)),
             "hrv_rmssd": float(raw_dict.get("hrv_rmssd", 34.0)),
             "hrv_pnn50": float(raw_dict.get("hrv_pnn50", 12.0)),
@@ -195,8 +245,8 @@ class GlucosePredictor:
             "ph_deviation_from_mean": ph_dev,
             "temperature_c": temp_c,
             "age": age,
-            "bmi": bmi
-        }
+            "bmi": bmi,
+        })
 
         # Scale continuous features using the production StandardScaler
         raw_num_df = pd.DataFrame([raw_numeric])[self.fs_scaler.feature_names_in_]

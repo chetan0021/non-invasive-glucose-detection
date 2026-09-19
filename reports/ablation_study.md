@@ -10,12 +10,12 @@
 
 | Experiment | Features Left | Test $R^2$ | $\Delta R^2$ | Test MAE (mg/dL) | $\Delta$ MAE | Clarke Zone A (%) | Clarke Zone A+B (%) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Full Sensor Baseline (All Modalities)** | 50 | **0.8754** | **-0.0190** | **18.60** | **+3.02** | 80.80% | 90.40% |
-| **Ablation 1: No PPG Morphology / Waveform Features** | 29 | **0.8753** | **-0.0191** | **18.62** | **+3.04** | 77.60% | 92.80% |
-| **Ablation 2: No ECG-HRV Autonomic Features** | 44 | **0.8495** | **-0.0449** | **19.35** | **+3.77** | 80.80% | 90.40% |
-| **Ablation 3: No Saliva pH Biochemical Sensor** | 48 | **0.8366** | **-0.0578** | **20.04** | **+4.46** | 79.20% | 90.40% |
-| **Ablation 4: No Skin Temperature Sensor** | 49 | **0.8737** | **-0.0207** | **18.79** | **+3.21** | 82.40% | 90.40% |
-| **PPG-Only Isolated Transducer Benchmark** | 21 | **0.5883** | **-0.3061** | **33.22** | **+17.64** | 56.00% | 86.40% |
+| **Full Sensor Baseline (All Modalities)** | 50 | **0.8362** | **+0.0782** | **20.35** | **-2.07** | 76.15% | 92.66% |
+| **Ablation 1: No PPG Morphology / Waveform Features** | 29 | **0.8163** | **+0.0583** | **19.50** | **-2.92** | 79.82% | 93.58% |
+| **Ablation 2: No ECG-HRV Autonomic Features** | 44 | **0.8385** | **+0.0805** | **20.20** | **-2.22** | 76.15% | 92.66% |
+| **Ablation 3: No Saliva pH Biochemical Sensor** | 48 | **0.7564** | **-0.0016** | **22.88** | **+0.46** | 75.23% | 92.66% |
+| **Ablation 4: No Skin Temperature Sensor** | 49 | **0.8417** | **+0.0837** | **20.23** | **-2.19** | 74.31% | 92.66% |
+| **PPG-Only Isolated Transducer Benchmark** | 21 | **0.6911** | **-0.0669** | **30.97** | **+8.55** | 63.30% | 89.91% |
 
 ---
 

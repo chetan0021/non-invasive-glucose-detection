@@ -13,13 +13,13 @@
 | **CDC NHANES 2017-2018** | **3,036** | **2,507** (384 pediatric age < 18 filtered) | `tabular_only` | Tabular Only (`has_ppg=False`) |
 | **UCI Diabetes 130** | **101,766** | **21,612** (454 pediatric age < 20 filtered) | `tabular_only` | Tabular Only (`has_ppg=False`) |
 | **Synthetic Multi-Modal** | **609** | **609** (Adult 18–78 cohort) | `full_sensor` | Full Multi-Modal (`has_ppg=True`, `has_ph=True`) |
-| **TOTAL UNIFIED** | **105,411** | **24,743** (Total 1,236 pediatric rows removed) | *(Two-Branch Schema)* | — |
+| **TOTAL UNIFIED** | **105,411** | **24,744** (Total 1,236 pediatric rows removed) | *(Two-Branch Schema)* | — |
 
 ---
 
 ## 2. Two-Branch Architecture Breakdown
 
-- **`full_sensor` Branch** (Rows with `has_ppg=True` AND `has_ph=True`): **594** rows (2.5% of dataset).
+- **`full_sensor` Branch** (Rows with `has_ppg=True` AND `has_ph=True`): **595** rows (2.5% of dataset).
 - **`tabular_only` Branch** (Rows with `has_ppg=False`): **24,149** rows (97.5% of dataset).
 
 ---
@@ -29,27 +29,27 @@
 ### Cross-Tab: `diabetes_diagnosis` $\times$ `glycemic_state_at_reading`
 | diabetes_diagnosis   |   elevated |   high |   hypoglycemic |   normal |   very_high |   All |
 |:---------------------|-----------:|-------:|---------------:|---------:|------------:|------:|
-| None                 |       1033 |      4 |              0 |      896 |           5 |  1938 |
-| Prediabetes          |        361 |      8 |              0 |       71 |           3 |   443 |
-| Type 1               |        241 |    712 |             53 |      265 |         613 |  1884 |
-| Type 2               |       6057 |   5836 |              0 |     5084 |        3501 | 20478 |
-| All                  |       7692 |   6560 |             53 |     6316 |        4122 | 24743 |
+| None                 |       1034 |      4 |              0 |      895 |           5 |  1938 |
+| Prediabetes          |        340 |      8 |              0 |       71 |           3 |   422 |
+| Type 1               |        239 |    712 |             54 |      264 |         613 |  1882 |
+| Type 2               |       6090 |   5820 |              0 |     5084 |        3508 | 20502 |
+| All                  |       7703 |   6544 |             54 |     6314 |        4129 | 24744 |
 
 ### Value Counts of Unified `diabetes_status`:
 | diabetes_status           |   count |
 |:--------------------------|--------:|
-| type2_controlled          |    6057 |
-| type2_uncontrolled        |    5836 |
+| type2_controlled          |    6090 |
+| type2_uncontrolled        |    5820 |
 | type2_normoglycemic       |    5084 |
-| type2_severe              |    3501 |
+| type2_severe              |    3508 |
 | type1_uncontrolled        |    1284 |
-| undiagnosed_elevated      |    1033 |
-| healthy                   |     896 |
-| prediabetes_elevated      |     361 |
-| type1_normoglycemic       |     265 |
-| type1_elevated            |     241 |
+| undiagnosed_elevated      |    1034 |
+| healthy                   |     895 |
+| prediabetes_elevated      |     340 |
+| type1_normoglycemic       |     264 |
+| type1_elevated            |     239 |
 | prediabetes_normoglycemic |      71 |
-| type1_hypoglycemic        |      53 |
+| type1_hypoglycemic        |      54 |
 | type1_severe              |      41 |
 | prediabetes_high          |      11 |
 | undiagnosed_high          |       9 |
@@ -59,7 +59,7 @@
 > 1. `diabetes_diagnosis` is invariant and reflects known medical diagnosis.
 > 2. `glycemic_state_at_reading` reflects the instantaneous measurement (<100: normal, 100-179: elevated, 180-249: high, >=250: very_high).
 > 3. Diagnosed Type 2 patients with a normal glucose reading are accurately classified as `type2_normoglycemic` (5,084 rows) rather than being conflated as `healthy`.
-> 4. The label `healthy` is strictly reserved for `diabetes_diagnosis == "None"` AND `glycemic_state_at_reading == "normal"` (896 rows).
+> 4. The label `healthy` is strictly reserved for `diabetes_diagnosis == "None"` AND `glycemic_state_at_reading == "normal"` (895 rows).
 
 ---
 
@@ -82,8 +82,8 @@
 
 - **Partitioning Method**: Stratified by `training_branch` and `diabetes_diagnosis` at the unique `participant_id` level.
 - **Data Leakage Guarantee**: **0 overlapping `participant_id` values** between train and test splits.
-- **Train Split (`train.csv`)**: **19,787** rows (16,792 unique participants).
-- **Test Split (`test.csv`)**: **4,956** rows (4,198 unique participants).
+- **Train Split (`train.csv`)**: **19,818** rows (16,792 unique participants).
+- **Test Split (`test.csv`)**: **4,926** rows (4,198 unique participants).
 
 ---
 
@@ -179,9 +179,9 @@
 ### C. `synthetic` (Multi-Modal Full Sensor Branch)
 ```
       participant_id training_branch  bgl_mg_dl  saliva_ph  perfusion_index  pulse_width_ms  hrv_sdnn diabetes_diagnosis       diabetes_status
-24149      SYNTH_001     full_sensor      145.1       7.26            1.291           176.0      6.00        Prediabetes  prediabetes_elevated
-24150      SYNTH_001     full_sensor      106.8       7.10            0.619           157.1      6.00        Prediabetes  prediabetes_elevated
-24151      SYNTH_001     full_sensor      131.7       7.15            1.707           173.1     15.09        Prediabetes  prediabetes_elevated
-24152      SYNTH_002     full_sensor      273.9       6.86            2.497           272.9     81.21             Type 1          type1_severe
-24153      SYNTH_002     full_sensor       64.9       7.40            1.133           222.5    140.00             Type 1    type1_hypoglycemic
+24149      SYNTH_001     full_sensor      145.1       7.26         1.291000           168.2      6.00        Prediabetes  prediabetes_elevated
+24150      SYNTH_001     full_sensor      106.8       7.10         0.619000           145.0     13.87        Prediabetes  prediabetes_elevated
+24151      SYNTH_001     full_sensor      131.7       7.15         1.707000           183.5      6.00        Prediabetes  prediabetes_elevated
+24152      SYNTH_002     full_sensor      273.9       6.86         1.722108           300.6     25.21             Type 1          type1_severe
+24153      SYNTH_002     full_sensor      300.5       6.82         0.816765           305.8     27.36             Type 1          type1_severe
 ```

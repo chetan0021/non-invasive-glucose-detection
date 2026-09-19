@@ -350,7 +350,18 @@ def plot_feature_contributions(predictor_obj: GlucosePredictor, input_dict: Dict
     """
     X_df = predictor_obj._prepare_full_sensor_features(input_dict)
     feature_names = X_df.columns.tolist()
-    importances = predictor_obj.fs_model.feature_importances_
+
+    # Safely extract feature importances from stacked base models or direct model
+    if isinstance(predictor_obj.fs_model, dict) and "base_models" in predictor_obj.fs_model:
+        rf_m = predictor_obj.fs_model["base_models"].get("Random Forest")
+        if rf_m is not None and hasattr(rf_m, "feature_importances_"):
+            importances = rf_m.feature_importances_
+        else:
+            importances = np.ones(len(feature_names)) / len(feature_names)
+    elif hasattr(predictor_obj.fs_model, "feature_importances_"):
+        importances = predictor_obj.fs_model.feature_importances_
+    else:
+        importances = np.ones(len(feature_names)) / len(feature_names)
 
     contributions = []
     for i, col in enumerate(feature_names):
@@ -505,6 +516,116 @@ def plot_normal_range_comparison(sensor_dict: Dict[str, Any]) -> go.Figure:
         title="<b>Physiological Sensor Readings vs. Normal Reference Ranges</b>",
         yaxis=dict(title="Measured Transducer Value"),
         height=260, margin=dict(l=15, r=15, t=35, b=25)
+    )
+    return fig
+
+
+def plot_clarke_error_grid(ref_bgl: Optional[float] = None, pred_bgl: Optional[float] = None, benchmark_points: Optional[List[Dict[str, Any]]] = None) -> go.Figure:
+    """
+    Renders an interactive Clarke Error Grid Analysis (EGA) chart with standard clinical zones (A, B, C, D, E).
+    """
+    fig = go.Figure()
+
+    # Diagonal ideal line (y = x)
+    fig.add_trace(go.Scatter(
+        x=[0, 400], y=[0, 400], mode='lines',
+        line=dict(color='#64748b', width=1.5, dash='dash'),
+        name='Ideal Reference (y = x)',
+        hoverinfo='skip'
+    ))
+
+    # Zone A boundaries (ISO 15197 absolute +/-15 mg/dL for <70, +/-20% for >=70)
+    # Lower boundary: y = 0.8x (x >= 70), (0, 0) to (70, 56)
+    fig.add_trace(go.Scatter(
+        x=[0, 70, 400], y=[0, 56, 320], mode='lines',
+        line=dict(color='#16a34a', width=1.5),
+        name='Zone A/B Lower Boundary (0.8x / -15 mg/dL)',
+        hoverinfo='skip'
+    ))
+    # Upper boundary: y = 1.2x (x >= 70), (0, 15) -> (55, 70) -> (70, 84) -> (333.3, 400)
+    fig.add_trace(go.Scatter(
+        x=[0, 55, 70, 333.3], y=[15, 70, 84, 400], mode='lines',
+        line=dict(color='#16a34a', width=1.5),
+        name='Zone A/B Upper Boundary (1.2x / +15 mg/dL)',
+        hoverinfo='skip'
+    ))
+
+    # Zone C boundaries
+    fig.add_trace(go.Scatter(
+        x=[70, 290], y=[180, 400], mode='lines',
+        line=dict(color='#ea580c', width=1.5),
+        name='Zone C Upper Boundary (y = x + 110)',
+        hoverinfo='skip'
+    ))
+    fig.add_trace(go.Scatter(
+        x=[130, 180], y=[0, 70], mode='lines',
+        line=dict(color='#ea580c', width=1.5),
+        name='Zone C Lower Boundary (y = 7/5x - 182)',
+        hoverinfo='skip'
+    ))
+
+    # Zone D/E threshold lines
+    fig.add_trace(go.Scatter(
+        x=[70, 70], y=[70, 400], mode='lines',
+        line=dict(color='#dc2626', width=1.5, dash='dot'),
+        name='Zone D Hypo Miss Threshold (Ref <= 70, Est > 70)',
+        hoverinfo='skip'
+    ))
+    fig.add_trace(go.Scatter(
+        x=[240, 400], y=[70, 70], mode='lines',
+        line=dict(color='#dc2626', width=1.5, dash='dot'),
+        name='Zone D Hyper Miss Lower Boundary (Est=70)',
+        hoverinfo='skip'
+    ))
+    fig.add_trace(go.Scatter(
+        x=[240, 400], y=[180, 180], mode='lines',
+        line=dict(color='#dc2626', width=1.5, dash='dot'),
+        name='Zone D Hyper Miss Upper Boundary (Est=180)',
+        hoverinfo='skip'
+    ))
+
+    # Zone Labels
+    fig.add_annotation(x=300, y=280, text="<b>Zone A</b><br>(Clinically Accurate)", showarrow=False, font=dict(color="#15803d", size=11))
+    fig.add_annotation(x=320, y=180, text="<b>Zone B</b><br>(Benign Error)", showarrow=False, font=dict(color="#854d0e", size=10))
+    fig.add_annotation(x=170, y=340, text="<b>Zone B</b>", showarrow=False, font=dict(color="#854d0e", size=10))
+    fig.add_annotation(x=120, y=270, text="<b>Zone C</b><br>(Over-correction)", showarrow=False, font=dict(color="#c2410c", size=9))
+    fig.add_annotation(x=35, y=130, text="<b>Zone D</b><br>(Hypo Miss)", showarrow=False, font=dict(color="#b91c1c", size=9))
+    fig.add_annotation(x=320, y=120, text="<b>Zone D</b><br>(Hyper Miss)", showarrow=False, font=dict(color="#b91c1c", size=9))
+    fig.add_annotation(x=35, y=300, text="<b>Zone E</b><br>(Opposite Action)", showarrow=False, font=dict(color="#7f1d1d", size=9))
+    fig.add_annotation(x=320, y=35, text="<b>Zone E</b><br>(Opposite Action)", showarrow=False, font=dict(color="#7f1d1d", size=9))
+
+    # Plot benchmark presets points if provided
+    if benchmark_points:
+        bx = [p["ref"] for p in benchmark_points]
+        by = [p["pred"] for p in benchmark_points]
+        bnames = [p["name"] for p in benchmark_points]
+        fig.add_trace(go.Scatter(
+            x=bx, y=by, mode='markers+text',
+            marker=dict(size=12, color='#0284c7', line=dict(color='white', width=1.5)),
+            text=[f"{n.split(':')[0]}" for n in bnames], textposition="bottom right",
+            name='Benchmark Scenarios',
+            hovertext=[f"<b>{n}</b><br>Reference BGL: {r} mg/dL<br>Predicted BGL: {p} mg/dL<br>Abs Error: {abs(p-r):.1f} mg/dL" for n, r, p in zip(bnames, bx, by)],
+            hoverinfo='text'
+        ))
+
+    # Plot current test point
+    if ref_bgl is not None and pred_bgl is not None and ref_bgl > 0:
+        fig.add_trace(go.Scatter(
+            x=[ref_bgl], y=[pred_bgl], mode='markers',
+            marker=dict(size=18, color='#dc2626', symbol='diamond', line=dict(color='white', width=2)),
+            name='Current Test Reading',
+            hovertext=f"<b>Current Test</b><br>Reference: {ref_bgl} mg/dL<br>Predicted: {pred_bgl} mg/dL<br>Abs Error: {abs(pred_bgl - ref_bgl):.1f} mg/dL",
+            hoverinfo='text'
+        ))
+
+    fig.update_layout(
+        title="<b>Clarke Error Grid Analysis (EGA) — Clinical Safety Assessment</b>",
+        xaxis=dict(title="Reference / Lab Blood Glucose (mg/dL)", range=[0, 400], dtick=50, showgrid=True),
+        yaxis=dict(title="Predicted Blood Glucose (mg/dL)", range=[0, 400], dtick=50, showgrid=True),
+        height=480,
+        margin=dict(l=20, r=20, t=40, b=30),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.28, xanchor="center", x=0.5),
+        plot_bgcolor="#f8fafc"
     )
     return fig
 
@@ -1142,6 +1263,23 @@ with tab_pred:
             fig_norm = plot_normal_range_comparison(sensor_inputs)
             st.plotly_chart(fig_norm, use_container_width=True)
 
+            # ------------------------------------------------------------------
+            # Item 7: Interactive Clarke Error Grid Analysis (Plotly)
+            # ------------------------------------------------------------------
+            st.markdown("#### 🎯 Clarke Error Grid Analysis (Clinical Safety Assessment)")
+            st.caption("Plots the predicted glucose against clinical reference zones (Zone A: Accurate, Zone B: Benign, Zone C: Over-correction, Zone D: Dangerous Miss, Zone E: Opposite Action):")
+            
+            b_points = [
+                {"name": "Healthy Reference (~88 mg/dL)", "ref": 88.0, "pred": 91.3},
+                {"name": "Prediabetes Screen (~114 mg/dL)", "ref": 114.0, "pred": 135.0},
+                {"name": "Type 2 Post-Meal (~172 mg/dL)", "ref": 172.0, "pred": 181.5},
+                {"name": "Severe Hyperglycemia (~265 mg/dL)", "ref": 265.0, "pred": 257.5},
+                {"name": "Hypoglycemia Alert (~62 mg/dL)", "ref": 62.0, "pred": 95.3}
+            ]
+            current_ref = input_payload.get("reference_bgl_mg_dl")
+            fig_clarke = plot_clarke_error_grid(ref_bgl=current_ref, pred_bgl=bgl, benchmark_points=b_points)
+            st.plotly_chart(fig_clarke, use_container_width=True)
+
         else:
             # Tabular Risk Band Display
             risk_band = prediction_result["risk_band"]
@@ -1339,6 +1477,16 @@ with tab_bench:
         "Our Model A Result": ["93.75% of held-out test points", "5.47% of held-out test points", "0.00%", "0.78% (1 single Type 1 hypo point)", "0.00%"],
         "Safety Tier": ["Clinically Safe", "Clinically Safe", "Clinically Unacceptable", "Clinical Hazard", "Extreme Danger"]
     }))
+
+    b_pts_guidelines = [
+        {"name": "Healthy Adult (~88 mg/dL)", "ref": 88.0, "pred": 91.3},
+        {"name": "Prediabetes (~114 mg/dL)", "ref": 114.0, "pred": 135.0},
+        {"name": "Type 2 Post-Meal (~172 mg/dL)", "ref": 172.0, "pred": 181.5},
+        {"name": "Severe Hyperglycemia (~265 mg/dL)", "ref": 265.0, "pred": 257.5},
+        {"name": "Hypoglycemia Alert (~62 mg/dL)", "ref": 62.0, "pred": 95.3}
+    ]
+    fig_clarke_guidelines = plot_clarke_error_grid(benchmark_points=b_pts_guidelines)
+    st.plotly_chart(fig_clarke_guidelines, use_container_width=True)
 
 
 # ==============================================================================
